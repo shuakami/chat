@@ -1,0 +1,966 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+
+/* 颜色 / 字体变量 */
+:root {
+  --bg-color: #0c0c0c;        /* 纯黑略带绿色底 */
+  --text-color: #33ff00;
+  --prompt-color: #00ff00;
+  --input-color: #ffffff;
+  --dim-color: #4a4a4a;
+  --system-color: #888888;
+  --other-msg-color: #cccccc;
+  --self-msg-color: #00ffff;
+  --error-color: #ff3333;
+  --success-color: #00ff00;
+  --font-family: "Fira Code", "Consolas", monospace;
+  --glow: 0 0 2px rgba(0, 255, 0, 0.2);
+  --user-nick-color: #00aaff;
+  --user-nick-hover-color: #66ccff;
+  --border-color: #222222;
+}
+
+/* 全局基础 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 页面底色 */
+body {
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-family);
+  font-size: 14px;
+  line-height: 1.6;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* 滚动终端面板 */
+.terminal {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 255, 0, 0.02) 0%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+.terminal-content {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+#messages {
+  height: calc(100vh - 70px);
+  width: 100%;
+  padding-left: calc(50% - 600px + 40px);
+  padding-right: calc(50% - 600px + 40px);
+  padding-top: 50px;
+  padding-bottom: 20px;
+  overflow-y: scroll;
+  margin: 0;
+}
+
+#messages > *:first-child {
+  margin-top: 0;
+}
+
+/* 行 / 提示符 */
+.terminal-line {
+  display: flex;
+  align-items: flex-start;
+  margin: 4px 0;
+}
+.prompt {
+  color: var(--prompt-color);
+  margin-right: 8px;
+  text-shadow: var(--glow);
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* 滚动条样式 */
+#messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+#messages::-webkit-scrollbar-track {
+  background: rgba(0,255,0,.05);
+}
+
+#messages::-webkit-scrollbar-thumb {
+  background: rgba(0,255,0,.2);
+}
+
+#messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,255,0,.3);
+}
+
+/* 输入区域样式调整 */
+.input-container {
+  width: 100%;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-color);
+  padding: 15px 0;
+  border-top: 1px solid var(--border-color);
+  z-index: 1000;
+  line-height: 1.6;
+}
+
+.input-container .input-line {
+  width: 100%;
+  max-width: min(900px, 92%);
+  margin: 0 auto;
+  padding-left: 0;
+  padding-right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.input-field {
+  flex: 1;
+  font-family: var(--font-family);
+  font-size: 14px;
+  background: transparent;
+  border: none;
+  color: var(--input-color);
+  padding: 0;
+  resize: none;
+  line-height: 1.6;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.input-field:focus { 
+  outline: none; 
+  caret-color: transparent !important;
+}
+
+.input-container .prompt {
+  color: var(--prompt-color);
+  margin-right: 8px;
+  text-shadow: var(--glow);
+  user-select: none;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+
+.input-container .action-buttons {
+  margin-top: 4px;
+}
+
+/* 消息与高亮 */
+.message {
+  margin: 6px auto;
+  position: relative;
+  padding-left: 24px;
+  word-wrap: break-word;
+  line-height: 1.5;
+  max-width: min(900px, 92%);
+  width: 100%;
+  transition: background-color 0.2s ease;
+}
+
+.message:not([data-editing="true"]):not([data-context-menu="true"]):hover {
+  background: rgba(0, 255, 0, 0.05);
+}
+
+/* 消息颜色 */
+.system-msg {
+  color: var(--system-color);
+  font-style: italic;
+}
+
+.error-msg  { color: var(--error-color);   }
+.success-msg{ color: var(--success-color); }
+.user-msg   { color: var(--other-msg-color); }
+.self-msg   { color: var(--self-msg-color); }
+
+/* 动画相关 */
+[data-is-new="true"] {
+  opacity: 0;
+  animation: fadeIn 0.3s ease forwards;
+}
+
+/* 系统消息的特殊处理 */
+.system-msg:not([data-is-new="true"]) {
+  opacity: 0.8;
+}
+
+@keyframes fadeIn {
+  0% { 
+    opacity: 0; 
+    transform: translateY(5px); 
+  }
+  100% { 
+    opacity: 0.8; 
+    transform: translateY(0); 
+  }
+}
+
+/* 非系统消息使用完全不透明 */
+.message:not(.system-msg)[data-is-new="true"] {
+  animation-name: fadeInFull;
+}
+
+@keyframes fadeInFull {
+  0% { 
+    opacity: 0; 
+    transform: translateY(5px); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+.message::before {
+  content: ">";
+  position: absolute;
+  left: 0;
+  color: var(--prompt-color);
+  opacity: 0.5;
+}
+
+.message:first-child {
+  margin-top: 0;
+}
+
+.timestamp { 
+  color: var(--dim-color); 
+  margin-right: 8px;
+  font-size: 0.9em; 
+  display: block;
+  margin-bottom: 3px;
+}
+
+/* 可点击昵称 */
+.user-nick {
+  color: var(--user-nick-color);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color .2s;
+}
+.user-nick:hover {
+  color: var(--user-nick-hover-color);
+  text-decoration: underline;
+}
+
+/* 编辑/引用等 */
+.message-content {
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* 移除消息内容的hover效果 */
+.message-content:hover {
+  background: transparent;
+}
+
+.quoted-text {
+  color: var(--dim-color);
+  border-left: 2px solid var(--prompt-color);
+  padding-left: 8px; margin: 4px 0;
+  font-style: italic;
+}
+
+/* 指令输出 (join、setNick…) */
+.command-output {
+  color: var(--success-color);
+  margin: 4px 0;
+  padding-left: 16px;
+  position: relative;
+}
+.command-output::before {
+  content: ">";
+  position: absolute; left: 0;
+  color: var(--prompt-color); opacity: .5;
+}
+
+/* 表情与文件按钮 & 面板 */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding-left: 8px;
+}
+
+.terminal-button {
+  background: transparent;
+  border: 1px solid var(--terminal-border, #333);
+  color: var(--terminal-text, #fff);
+  padding: 4px 8px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.terminal-button:hover:not(:disabled) {
+  border-color: var(--terminal-highlight, #0f0);
+  color: var(--terminal-highlight, #0f0);
+}
+
+.terminal-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.terminal-button.active {
+  background-color: var(--terminal-highlight, #0f0);
+  color: var(--terminal-background, #1e1e1e);
+}
+
+.terminal-button.cancel-edit-btn {
+  color: var(--error-color);
+}
+
+.terminal-button.cancel-edit-btn:hover:not(:disabled) {
+  border-color: var(--error-color);
+  color: var(--error-color);
+}
+
+/* 表情选择器样式 */
+.emoji-panel {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  z-index: 1000;
+}
+
+.emoji-item {
+  padding: 4px;
+  text-align: center;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all .3s;
+}
+.emoji-item:hover {
+  border-color: var(--text-color);
+  background: rgba(0, 255, 0, 0.1);
+}
+.emoji-item img {
+  width: 30px;
+  height: 30px;
+  vertical-align: middle;
+}
+
+/* 消息内图片/文件 */
+.message-text img,
+.message-text video,
+.message-text audio {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 8px 0;
+  display: block;
+}
+
+/* Specific class for emoji images if they are rendered differently than general .message-text img */
+.emoji-in-message {
+    width: 24px;
+    height: 24px;
+    display: inline-block;
+    vertical-align: middle;
+    margin: 0 2px;
+}
+
+.file-link {
+  text-decoration: underline;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.file-link:hover {
+  text-decoration: none;
+}
+.file-link svg {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+}
+
+/* 光标闪烁效果 (可给<span class="blink">|</span>) */
+@keyframes blink-animation { to { visibility: hidden; } }
+.blink { animation: blink-animation 1s steps(2,start) infinite; }
+
+/* 确保body和html是100%高度，以便 .terminal 和 .crt-overlay 正确工作 */
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* 登录表单特定样式 */
+#login-form .terminal-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+#login-form .input-line {
+  margin-top: 20px;
+}
+
+/* 响应式调整 */
+@media screen and (max-width: 1200px) {
+  #messages {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
+  
+  .input-container .input-line {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  #messages {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  
+  .message {
+    max-width: 96%;
+  }
+  
+  .input-container .input-line {
+    max-width: 96%;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  #messages {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .message {
+    max-width: 98%;
+  }
+  
+  .input-container .input-line {
+    max-width: 98%;
+  }
+  
+  .input-field {
+    font-size: 13px;
+  }
+  
+  .terminal-button {
+    padding: 3px 6px;
+    font-size: 13px;
+  }
+}
+
+/* 隔行暗纹（整页覆盖，pointer-events:none 不挡交互） */
+.crt-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    rgba(0, 0, 0, 0) 50%,
+    rgba(0, 0, 0, 0.1) 50%
+  );
+  background-size: 100% 4px;   /* 每 4 px 一条暗线 */
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(5px); 
+  }
+  to { 
+    opacity: 0.8; /* 系统消息最终的透明度 */
+    transform: translateY(0); 
+  }
+}
+
+/* 为非系统消息设置不同的动画终点 */
+@keyframes fadeInNormal {
+  from { 
+    opacity: 0; 
+    transform: translateY(5px); 
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0); 
+  }
+}
+
+/* 根据消息类型使用不同的动画 */
+.message:not(.system-msg).animate-new {
+  animation-name: fadeInNormal;
+}
+
+/* 自定义光标样式 */
+.custom-caret {
+  position: absolute;
+  background-color: var(--prompt-color);
+  width: 2px;
+  pointer-events: none;
+  opacity: 0;
+  transition: left 0.05s linear, top 0.05s linear;
+  z-index: 1;
+}
+
+.input-field:focus ~ .custom-caret,
+.input-line:focus-within .custom-caret {
+}
+
+@keyframes blinkCustomCaret {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* 导入表情选择器样式 */
+@import url('../../../styles/terminal-emoji.css');
+
+/* 表情选择器样式 */
+.emoji-panel {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  z-index: 1000;
+}
+
+.terminal-button {
+  background: transparent;
+  border: 1px solid var(--terminal-border, #333);
+  color: var(--terminal-text, #fff);
+  padding: 4px 8px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 8px;
+}
+
+.terminal-button:hover:not(:disabled) {
+  border-color: var(--terminal-highlight, #0f0);
+  color: var(--terminal-highlight, #0f0);
+}
+
+.terminal-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.terminal-button.active {
+  background-color: var(--terminal-highlight, #0f0);
+  color: var(--terminal-background, #1e1e1e);
+}
+
+/* 表情选择器样式 */
+.emoji-panel {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 8px;
+  z-index: 1000;
+}
+
+.emoji-item {
+  padding: 4px;
+  text-align: center;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all .3s;
+}
+.emoji-item:hover {
+  border-color: var(--text-color);
+  background: rgba(0, 255, 0, 0.1);
+}
+.emoji-item img {
+  width: 30px;
+  height: 30px;
+  vertical-align: middle;
+}
+
+/* 消息内图片/文件 */
+.message-text img,
+.message-text video,
+.message-text audio {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 8px 0;
+  display: block;
+}
+
+/* Specific class for emoji images if they are rendered differently than general .message-text img */
+.emoji-in-message {
+    width: 24px;
+    height: 24px;
+    display: inline-block;
+    vertical-align: middle;
+    margin: 0 2px;
+}
+
+.file-link {
+  text-decoration: underline;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.file-link:hover {
+  text-decoration: none;
+}
+.file-link svg {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+}
+
+/* 光标闪烁效果 (可给<span class="blink">|</span>) */
+@keyframes blink-animation { to { visibility: hidden; } }
+.blink { animation: blink-animation 1s steps(2,start) infinite; }
+
+/* 确保body和html是100%高度，以便 .terminal 和 .crt-overlay 正确工作 */
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* 登录表单特定样式 */
+#login-form .terminal-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+#login-form .input-line {
+  margin-top: 20px;
+}
+
+/* 响应式调整 */
+@media screen and (max-width: 1200px) {
+  #messages {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
+  
+  .input-container .input-line {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  #messages {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  
+  .message {
+    max-width: 96%;
+  }
+  
+  .input-container .input-line {
+    max-width: 96%;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  #messages {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .message {
+    max-width: 98%;
+  }
+  
+  .input-container .input-line {
+    max-width: 98%;
+  }
+  
+  .input-field {
+    font-size: 13px;
+  }
+  
+  .terminal-button {
+    padding: 3px 6px;
+    font-size: 13px;
+  }
+}
+
+/* 隔行暗纹（整页覆盖，pointer-events:none 不挡交互） */
+.crt-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    rgba(0, 0, 0, 0) 50%,
+    rgba(0, 0, 0, 0.1) 50%
+  );
+  background-size: 100% 4px;   /* 每 4 px 一条暗线 */
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(5px); 
+  }
+  to { 
+    opacity: 0.8; /* 系统消息最终的透明度 */
+    transform: translateY(0); 
+  }
+}
+
+/* 为非系统消息设置不同的动画终点 */
+@keyframes fadeInNormal {
+  from { 
+    opacity: 0; 
+    transform: translateY(5px); 
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0); 
+  }
+}
+
+/* 根据消息类型使用不同的动画 */
+.message:not(.system-msg).animate-new {
+  animation-name: fadeInNormal;
+}
+
+/* 自定义光标样式 */
+.custom-caret {
+  position: absolute;
+  background-color: var(--prompt-color);
+  width: 2px;
+  pointer-events: none;
+  opacity: 0;
+  transition: left 0.05s linear, top 0.05s linear;
+  z-index: 1;
+}
+
+.input-field:focus ~ .custom-caret,
+.input-line:focus-within .custom-caret {
+}
+
+@keyframes blinkCustomCaret {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* 消息操作按钮 */
+.message-actions {
+  display: none;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  gap: 8px;
+}
+
+.message:hover .message-actions {
+  display: flex;
+}
+
+.action-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  padding: 2px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  background: rgba(0, 255, 0, 0.1);
+  border-color: var(--success-color);
+}
+
+.edit-btn {
+  color: var(--success-color);
+}
+
+.delete-btn {
+  color: var(--error-color);
+}
+
+.edit-indicator {
+  font-size: 12px;
+  color: var(--system-color);
+  margin-left: 8px;
+  opacity: 0.8;
+}
+
+.cancel-edit-btn {
+  margin-left: 8px;
+  color: var(--error-color);
+}
+
+/* 编辑状态的消息 */
+.message[data-editing="true"],
+.message[data-context-menu="true"] {
+  background: rgba(0, 255, 0, 0.1);
+}
+
+/* 右键菜单样式 */
+.context-menu {
+  position: fixed;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  padding: 4px;
+  min-width: 180px;
+  z-index: 1000;
+  animation: contextMenuIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: top left;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-family);
+  font-size: 13px;
+  text-align: left;
+  position: relative;
+}
+
+.context-menu-item:not(:last-child) {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.context-menu-item:hover {
+  background: rgba(0, 255, 0, 0.05);
+  padding-left: 24px;
+}
+
+.context-menu-item::before {
+  content: '>';
+  position: absolute;
+  left: 6px;
+  opacity: 0;
+  color: currentColor;
+  transition: all 0.2s ease;
+}
+
+.context-menu-item:hover::before {
+  opacity: 0.8;
+}
+
+.context-menu-item.edit {
+  color: var(--success-color);
+}
+
+.context-menu-item.delete {
+  color: var(--error-color);
+}
+
+.context-menu-item svg {
+  width: 14px;
+  height: 14px;
+  transition: all 0.2s ease;
+}
+
+.context-menu-item:hover svg {
+  transform: scale(1.1);
+}
+
+@keyframes contextMenuIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 移除旧的消息操作按钮样式 */
+.message-actions {
+  display: none !important;
+}
+
+.action-btn {
+  display: none !important;
+}
+
+/* 消息内容右键样式 */
+.message-content {
+  position: relative;
+  cursor: default;
+}
+
+.message-content::after {
+  content: '';
+  position: absolute;
+  inset: -2px -4px;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  pointer-events: none;
+  border-radius: 2px;
+}
+
+/* 禁用消息内容的默认右键菜单 */
+.message-content {
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+}
+
+/* 消息动画 */
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(5px); 
+  }
+  to { 
+    opacity: 0.8; /* 系统消息最终的透明度 */
+    transform: translateY(0); 
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+
+.message[data-deleting="true"] {
+  animation: fadeOut 0.3s ease forwards;
+  pointer-events: none;
+}
+
+

@@ -1,103 +1,143 @@
-import Image from "next/image";
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
+import './room/[roomId]/terminal-styles.css';
+
+const APP_VERSION = '1.0.1';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const router = useRouter();
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [roomIdInput, setRoomIdInput] = useState('');
+  const [showCustomCaret, setShowCustomCaret] = useState(true);
+  const [caretPosition, setCaretPosition] = useState({ left: 0, top: 0, height: 0 });
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  useEffect(() => {
+    // 模拟终端初始化
+    setTimeout(() => {
+      setIsInitialized(true);
+      setTimeout(() => setShowPrompt(true), 500);
+    }, 1000);
+  }, []);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // 更新光标位置
+  useEffect(() => {
+    if (inputRef.current && showCustomCaret) {
+      const updateCaretPosition = () => {
+        const input = inputRef.current;
+        if (!input) return;
+
+        const { selectionStart, value } = input;
+        const textBeforeCaret = value.substring(0, selectionStart || 0);
+        
+        // 创建临时span来测量文本宽度
+        const span = document.createElement('span');
+        span.style.font = window.getComputedStyle(input).font;
+        span.style.visibility = 'hidden';
+        span.style.position = 'absolute';
+        span.textContent = textBeforeCaret;
+        document.body.appendChild(span);
+        
+        const { offsetLeft, offsetTop, offsetHeight } = input;
+        const textWidth = span.offsetWidth;
+        
+        document.body.removeChild(span);
+        
+        setCaretPosition({
+          left: offsetLeft + textWidth,
+          top: offsetTop,
+          height: offsetHeight
+        });
+      };
+
+      updateCaretPosition();
+      window.addEventListener('resize', updateCaretPosition);
+      return () => window.removeEventListener('resize', updateCaretPosition);
+    }
+  }, [roomIdInput, showCustomCaret]);
+
+  const handleJoinRoom = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (roomIdInput.trim()) {
+      // 添加输入动画效果
+      const form = e.currentTarget;
+      form.classList.add('processing');
+      setTimeout(() => {
+        router.push(`/room/${roomIdInput.trim()}`);
+      }, 500);
+    }
+  };
+
+  if (!isInitialized) {
+    return (
+      <>
+        <div className="scanline"></div>
+        <div className="crt-overlay"></div>
+        <section className="terminal" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <div className="terminal-content">
+            <p className="message system-msg !mt-[55px]" data-is-new={true}>
+              Initializing terminal... <span className="blink">|</span>
+            </p>
+          </div>
+        </section>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="scanline"></div>
+      <div className="crt-overlay"></div>
+      <section className="terminal" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div className="terminal-content !mt-[55px]">
+          <p className="message system-msg" data-is-new={true}>
+            Private Chat Terminal v{APP_VERSION}
+          </p>
+          <p className="message system-msg" data-is-new={true}>
+            Welcome to the secure chat system.
+          </p>
+          <p className="message system-msg" data-is-new={true}>
+            Please enter room ID to continue...
+          </p>
+          
+          {showPrompt && (
+            <form onSubmit={handleJoinRoom} className="terminal-form" data-is-new={true}>
+              <div className="message input-line">
+                <span className="prompt">$</span>
+                <input 
+                  ref={inputRef}
+                  type="text"
+                  id="roomId"
+                  className="input-field"
+                  value={roomIdInput}
+                  onChange={(e) => setRoomIdInput(e.target.value)}
+                  placeholder="enter_room_id..."
+                  autoComplete="off"
+                  autoFocus
+                  required
+                  onFocus={() => setShowCustomCaret(true)}
+                  onBlur={() => setShowCustomCaret(false)}
+                />
+                {showCustomCaret && (
+                  <div
+                    className="custom-caret"
+                    style={{
+                      left: `${caretPosition.left}px`,
+                      top: `${caretPosition.top}px`,
+                      height: `${caretPosition.height}px`,
+                      animation: 'blinkCustomCaret 1s step-end infinite'
+                    }}
+                  />
+                )}
+              </div>
+              <button type="submit" style={{ display: 'none' }}>Join</button>
+            </form>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </section>
+    </>
   );
 }

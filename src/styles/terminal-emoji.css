@@ -1,0 +1,236 @@
+.terminal-emoji-picker {
+  width: 500px;
+  height: 270px;
+  background-color: var(--terminal-background, #1e1e1e);
+  border: 1px solid var(--terminal-border, #333);
+  color: var(--terminal-text, #fff);
+  font-family: 'Consolas', 'Monaco', monospace;
+  padding: 0.75rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  outline: none;
+  z-index: 1000;
+  font-size: 0.9rem;
+  animation: terminalFadeIn 0.2s ease-out;
+  transform-origin: top right;
+}
+
+@keyframes terminalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.terminal-emoji-header {
+  margin-bottom: 0.5rem;
+  animation: terminalSlideDown 0.3s ease-out;
+}
+
+@keyframes terminalSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.terminal-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.prompt {
+  color: var(--terminal-prompt, #0f0);
+  user-select: none;
+}
+
+.terminal-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--terminal-text, #fff);
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.2rem;
+  outline: none;
+  caret-color: var(--terminal-prompt, #0f0);
+  animation: terminalTyping 0.3s steps(1, end);
+}
+
+@keyframes terminalTyping {
+  from {
+    border-right: 2px solid var(--terminal-prompt, #0f0);
+  }
+  to {
+    border-right: 2px solid transparent;
+  }
+}
+
+.terminal-input::placeholder {
+  color: var(--terminal-text-dim, #666);
+}
+
+.terminal-error {
+  color: var(--terminal-error, #ff0000);
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  animation: terminalShake 0.4s ease-in-out;
+}
+
+@keyframes terminalShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+.terminal-emoji-grid {
+  height: 190px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--terminal-scrollbar, #666) transparent;
+}
+
+.terminal-emoji-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.terminal-emoji-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.terminal-emoji-grid::-webkit-scrollbar-thumb {
+  background-color: var(--terminal-scrollbar, #666);
+  border-radius: 3px;
+  transition: background-color 0.3s ease;
+}
+
+.terminal-emoji-grid::-webkit-scrollbar-thumb:hover {
+  background-color: var(--terminal-scrollbar-hover, #888);
+}
+
+.terminal-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.35rem;
+  padding: 0.25rem;
+  transition: opacity 0.2s ease-out;
+}
+
+.terminal-grid.searching {
+  opacity: 0.7;
+}
+
+.terminal-emoji-item {
+  position: relative;
+  padding: 0.25rem;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: terminalItemFadeIn 0.3s ease-out backwards;
+}
+
+/* 为每个表情添加交错动画 */
+.terminal-emoji-item:nth-child(1) { animation-delay: 0.02s; }
+.terminal-emoji-item:nth-child(2) { animation-delay: 0.04s; }
+.terminal-emoji-item:nth-child(3) { animation-delay: 0.06s; }
+.terminal-emoji-item:nth-child(4) { animation-delay: 0.08s; }
+.terminal-emoji-item:nth-child(5) { animation-delay: 0.10s; }
+.terminal-emoji-item:nth-child(6) { animation-delay: 0.12s; }
+
+@keyframes terminalItemFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.terminal-emoji-item:hover,
+.terminal-emoji-item.selected {
+  border-color: var(--terminal-highlight, #0f0);
+  background-color: rgba(0, 255, 0, 0.1);
+}
+
+.terminal-emoji-item::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 1px solid transparent;
+  pointer-events: none;
+  transition: border-color 0.2s ease;
+}
+
+.terminal-emoji-item.selected::before {
+  border-color: var(--terminal-highlight, #0f0);
+  animation: terminal-pulse 2s infinite;
+}
+
+.terminal-emoji-image {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  max-width: 48px;
+  margin: 0 auto;
+  transition: transform 0.2s ease;
+}
+
+.terminal-emoji-item:hover .terminal-emoji-image {
+  transform: scale(1.1);
+}
+
+.terminal-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--terminal-text-dim, #666);
+  font-style: italic;
+  animation: terminalFadeIn 0.3s ease-out;
+}
+
+.terminal-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: terminalFadeIn 0.3s ease-out;
+}
+
+.loading-text {
+  color: var(--terminal-text-dim, #666);
+  animation: terminalBlink 1s infinite;
+}
+
+@keyframes terminal-pulse {
+  0% { border-color: var(--terminal-highlight, #0f0); }
+  50% { border-color: transparent; }
+  100% { border-color: var(--terminal-highlight, #0f0); }
+}
+
+@keyframes terminalBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.emoji-panel {
+  display: contents;
+} 
