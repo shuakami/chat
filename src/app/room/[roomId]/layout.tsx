@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export async function generateMetadata({ params }: { params: { roomId: string } }): Promise<Metadata> {
-  const { roomId } = await params;
+  const { roomId } = params;
   return {
     title: `chat / ${roomId} | 加密聊天`,
     description: '私密加密聊天室，支持阅后即焚、文件传输、表情包。聊天内容端到端加密，完全匿名，保护您的隐私。',

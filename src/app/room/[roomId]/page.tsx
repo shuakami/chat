@@ -546,7 +546,7 @@ export default function ChatRoom() {
 
       return messages.sort((a, b) => a.timestamp - b.timestamp);
     });
-  }, [userId, roomId, sendNotification]);
+  }, [userId, roomId, sendNotification, joinTimestamp]);
 
   // 处理消息动画
   useEffect(() => {
@@ -1165,7 +1165,7 @@ export default function ChatRoom() {
       console.log('组件加载，检查通知权限');
       requestNotificationPermission();
     }
-  }, [isJoined]);
+  }, [isJoined, requestNotificationPermission]);
 
   if (!isInitialized) {
     return (
