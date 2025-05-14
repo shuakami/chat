@@ -116,35 +116,63 @@ const imageContentStyle = `
   }
 `;
 
-// 添加图片预览模态框组件
-const ImagePreview = ({ src, onClose }: { src: string; onClose: () => void }) => {
+// 更新 MediaPreview 组件
+const MediaPreview = ({ src, onClose, type = 'image' }: { src: string; onClose: () => void; type?: 'image' | 'video' }) => {
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90"
       onClick={onClose}
     >
-      <div className="relative max-w-[90vw] max-h-[90vh]">
-        <button
-          className="absolute top-4 right-4 text-white hover:text-gray-300 z-50"
-          onClick={onClose}
-        >
-          关闭
-        </button>
-        <a 
-          href={src} 
-          download 
-          className="absolute top-4 left-4 text-white hover:text-gray-300 z-50"
-          onClick={e => e.stopPropagation()}
-        >
-          下载
-        </a>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt="预览"
-          className="max-w-full max-h-[90vh] object-contain"
-          onClick={e => e.stopPropagation()}
-        />
+      <div className="relative max-w-[90vw] max-h-[90vh] w-full h-full flex items-center justify-center">
+        <div className="absolute top-4 right-4 flex gap-2 z-50">
+          <a 
+            href={src} 
+            download 
+            className="px-4 py-2 text-white hover:text-gray-300 transition-colors flex items-center gap-2"
+            onClick={e => e.stopPropagation()}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            下载
+          </a>
+          <button
+            className="px-4 py-2 text-white hover:text-gray-300 transition-colors flex items-center gap-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            关闭
+          </button>
+        </div>
+        
+        {type === 'image' ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={src}
+            alt="预览"
+            className="max-w-full max-h-[90vh] object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+        ) : (
+          <div className="relative w-full h-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
+            <video
+              src={src}
+              className="max-w-full max-h-[90vh] w-auto h-auto object-contain"
+              controls
+              autoPlay
+              controlsList="nodownload"
+              style={{
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+              }}
+              onClick={e => e.stopPropagation()}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -228,6 +256,119 @@ interface ExtendedNotificationOptions extends NotificationOptions {
   }[];
 }
 
+// 更新视频预览组件
+const VideoPreview = ({ msg, onMediaClick }: { msg: ReceiveMessage; onMediaClick: (url: string, type: 'image' | 'video', isEmoji: boolean) => void }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [thumbnail, setThumbnail] = useState<string>('');
+  const [isPlaying, setIsPlaying] = useState(false); // 用于控制动画
+  
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      // 沿用之前工作正常的预览图生成逻辑
+      video.currentTime = 0.1; // 设置初始时间
+      
+      const handleLoadedData = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            setThumbnail(dataUrl);
+          }
+        } catch (err) {
+          console.error('生成预览图失败:', err);
+        }
+      };
+
+      video.addEventListener('loadeddata', handleLoadedData);
+      return () => {
+        video.removeEventListener('loadeddata', handleLoadedData);
+      };
+    }
+  }, []);
+
+  // 处理鼠标悬停
+  const handleMouseEnter = useCallback(() => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0.2; // 从第0.2秒开始播放
+      videoRef.current.play()
+        .then(() => setIsPlaying(true))
+        .catch(err => console.error('视频播放失败:', err));
+    }
+  }, []);
+
+  // 处理鼠标离开
+  const handleMouseLeave = useCallback(() => {
+    if (videoRef.current) {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+  }, []);
+
+  return (
+    <div style={{ margin: '8px 0' }}>
+      <div 
+        className="video-thumbnail cursor-pointer relative"
+        onClick={() => onMediaClick(msg.fileMeta!.url, 'video', false)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        style={{
+          maxWidth: '300px',
+          maxHeight: '169px',
+          overflow: 'hidden',
+          borderRadius: '4px',
+          backgroundColor: '#000',
+          aspectRatio: '16/9',
+          transition: 'opacity 0.3s ease', // 添加过渡效果
+        }}
+      >
+        <video 
+          ref={videoRef}
+          src={msg.fileMeta!.url}
+          className="w-full h-full object-cover"
+          crossOrigin="anonymous"
+          preload="metadata"
+          muted
+          playsInline
+          loop // 可选：悬停时循环播放
+          style={{ 
+            display: 'block', // 始终显示，通过透明度控制
+            opacity: isPlaying ? 1 : 0,
+            transition: 'opacity 0.3s ease',
+            objectFit: 'cover',
+          }}
+        />
+        {thumbnail && (
+          <img 
+            src={thumbnail} 
+            alt="视频预览"
+            className="w-full h-full object-cover absolute inset-0"
+            style={{ 
+              opacity: isPlaying ? 0 : 1, 
+              transition: 'opacity 0.3s ease', 
+              zIndex: 1 // 确保预览图在视频之上（未播放时）
+            }}
+          />
+        )}
+        {!isPlaying && (
+          <div 
+            className="absolute inset-0 flex items-center justify-center bg-black/30"
+            style={{ zIndex: 2 }} // 确保播放按钮在最上层
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-white">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+            </svg>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function ChatRoom() {
   const { roomId } = useParams();
   const [isInitialized, setIsInitialized] = useState(false);
@@ -241,7 +382,7 @@ export default function ChatRoom() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
   const [showCustomCaret, setShowCustomCaret] = useState(false);
   const [customCaretStyle, setCustomCaretStyle] = useState({ top: 0, left: 0, height: 0, opacity: 0 });
   const blinkIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -857,10 +998,64 @@ export default function ChatRoom() {
     }
   };
 
+  // 添加更换名称的处理函数
+  const handleNameChange = (newName: string) => {
+    if (!newName.trim()) {
+      setAllMessages(prev => [...prev, {
+        id: `system-${Date.now()}`,
+        type: 'system',
+        content: '新名称不能为空',
+        userId: 'system',
+        timestamp: Date.now(),
+        roomId: roomId as string,
+        isNew: true
+      }]);
+      return;
+    }
+
+    const oldName = userId;
+    // 更新 Cookie 和状态
+    Cookies.set(USER_ID_COOKIE, newName.trim(), { expires: 30 });
+    setUserId(newName.trim());
+
+    // 发送系统消息
+    sendMessage({
+      type: 'system',
+      content: JSON.stringify({
+        action: 'rename',
+        oldName: oldName,
+        newName: newName.trim()
+      })
+    });
+
+    // 添加本地系统消息
+    setAllMessages(prev => [...prev, {
+      id: `system-${Date.now()}`,
+      type: 'system',
+      content: `你已将名称从 ${oldName} 更改为 ${newName.trim()}`,
+      userId: 'system',
+      timestamp: Date.now(),
+      roomId: roomId as string,
+      isNew: true
+    }]);
+  };
+
   // 修改 handleSubmitMessage 函数
   const handleSubmitMessage = (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
     if (messageInput.trim()) {
+      // 检查是否是更换名称命令
+      const nameMatch = messageInput.trim().match(/^\/n(?:ame)?\s+(.+)$/);
+      if (nameMatch) {
+        const newName = nameMatch[1].trim();
+        handleNameChange(newName);
+        setMessageInput('');
+        if (inputRef.current) {
+          inputRef.current.style.height = 'auto';
+        }
+        return;
+      }
+
       // 检查是否是邀请命令
       const inviteMatch = messageInput.trim().match(/^\/i\s+([^\s@]+@[^\s@]+\.[^\s@]+)$/);
       if (inviteMatch) {
@@ -967,12 +1162,14 @@ export default function ChatRoom() {
     setShowEmojiPicker(false);
   };
 
-  const handleImageClick = (url: string, isEmoji: boolean) => {
+  // 更新 handleImageClick 为 handleMediaClick
+  const handleMediaClick = (url: string, type: 'image' | 'video', isEmoji: boolean) => {
     if (!isEmoji) {
-      setPreviewImage(url);
+      setPreviewImage({ url, type });
     }
   };
 
+  // 更新 renderMessageContent 函数中的媒体处理部分
   const renderMessageContent = (msg: ReceiveMessage, isCurrentUser: boolean) => {
     if (msg.fileMeta) {
       // 优先处理表情
@@ -996,7 +1193,12 @@ export default function ChatRoom() {
         );
       }
       
-      // 处理图片类型的文件
+      // 处理视频类型
+      if (msg.fileMeta.mimeType?.startsWith('video/')) {
+        return <VideoPreview msg={msg} onMediaClick={handleMediaClick} />;
+      }
+      
+      // 处理图片类型
       if (msg.fileMeta.mimeType?.startsWith('image/')) {
         return (
           <div style={{ margin: '8px 0' }}>
@@ -1010,7 +1212,7 @@ export default function ChatRoom() {
                 height: 'auto',
                 cursor: 'pointer'
               }}
-              onClick={() => handleImageClick(msg.fileMeta!.url, false)}
+              onClick={() => handleMediaClick(msg.fileMeta!.url, 'image', false)}
               unoptimized={true}
             />
           </div>
@@ -1472,7 +1674,7 @@ export default function ChatRoom() {
               ref={inputRef}
               className="input-field"
               rows={1} 
-              placeholder={editingMessageId ? "编辑消息..." : "输入消息… (Shift+Enter 换行, Enter 发送, /i 邮箱 邀请)"}
+              placeholder={editingMessageId ? "编辑消息..." : "输入消息… (Shift+Enter 换行, Enter 发送, /i 邮箱 邀请, /n 新名称)"}
               value={messageInput}
               onChange={(e) => {
                 setMessageInput(e.target.value);
@@ -1555,8 +1757,9 @@ export default function ChatRoom() {
         </div>
       </section>
       {previewImage && (
-        <ImagePreview 
-          src={previewImage} 
+        <MediaPreview 
+          src={previewImage.url}
+          type={previewImage.type}
           onClose={() => setPreviewImage(null)} 
         />
       )}
