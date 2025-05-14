@@ -65,19 +65,50 @@ interface ExtendedReceiveMessage extends ReceiveMessage {
 const USER_ID_COOKIE = 'chat_user_id';
 const APP_VERSION = '1.0.1';
 
-// 添加音效对象
+// 添加音效对象和控制变量
 const notifySound = typeof Audio !== 'undefined' ? new Audio('/notify.wav') : null;
 const sendSound = typeof Audio !== 'undefined' ? new Audio('/send.wav') : null;
+
+// 用于控制通知音效的节流
+const NOTIFY_COOLDOWN = 2000; // 通知音效的冷却时间（毫秒）
+let lastNotifyTime = 0;
+let pendingNotifications = 0;
 
 // 预加载音效
 if (notifySound) {
   notifySound.load();
   notifySound.volume = 0.6; // 设置音量为60%
+  
+  // 添加音效播放完成的处理
+  notifySound.addEventListener('ended', () => {
+    // 如果还有待播放的通知，且已经过了冷却时间，则播放
+    if (pendingNotifications > 0 && Date.now() - lastNotifyTime >= NOTIFY_COOLDOWN) {
+      pendingNotifications = 0;
+      lastNotifyTime = Date.now();
+      notifySound.play().catch(err => console.log('播放通知音效失败:', err));
+    }
+  });
 }
 if (sendSound) {
   sendSound.load();
   sendSound.volume = 0.6; // 设置音量为60%
 }
+
+// 添加智能通知音效播放函数
+const playNotifySound = () => {
+  if (!notifySound) return;
+
+  const now = Date.now();
+  if (now - lastNotifyTime >= NOTIFY_COOLDOWN) {
+    // 如果超过冷却时间，直接播放
+    lastNotifyTime = now;
+    pendingNotifications = 0;
+    notifySound.play().catch(err => console.log('播放通知音效失败:', err));
+  } else {
+    // 如果在冷却时间内，增加待播放计数
+    pendingNotifications++;
+  }
+};
 
 const imageContentStyle = `
   .image-content:hover {
@@ -359,8 +390,14 @@ export default function ChatRoom() {
     setAllMessages((prevMessages) => {
       const messages = [...prevMessages] as ExtendedReceiveMessage[];
       let hasNewMessage = false;
+      let hasNewUserMessage = false;
       
       for (const msg of newMessages) {
+        // 检查是否有新的用户消息
+        if (!isHistory && msg.type === 'message' && msg.userId !== userId) {
+          hasNewUserMessage = true;
+        }
+        
         // 播放接收消息音效
         if (!isHistory && msg.type === 'message' && msg.userId !== userId) {
           notifySound?.play().catch(err => console.log('播放通知音效失败:', err));
@@ -561,6 +598,11 @@ export default function ChatRoom() {
             behavior: isHistory ? 'auto' : 'smooth' 
           });
         }, isHistory ? 0 : 100);
+      }
+
+      // 在处理完所有消息后，只播放一次音效
+      if (hasNewUserMessage) {
+        playNotifySound();
       }
 
       return messages.sort((a, b) => a.timestamp - b.timestamp);
