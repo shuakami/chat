@@ -65,6 +65,20 @@ interface ExtendedReceiveMessage extends ReceiveMessage {
 const USER_ID_COOKIE = 'chat_user_id';
 const APP_VERSION = '1.0.1';
 
+// 添加音效对象
+const notifySound = typeof Audio !== 'undefined' ? new Audio('/notify.wav') : null;
+const sendSound = typeof Audio !== 'undefined' ? new Audio('/send.wav') : null;
+
+// 预加载音效
+if (notifySound) {
+  notifySound.load();
+  notifySound.volume = 0.6; // 设置音量为60%
+}
+if (sendSound) {
+  sendSound.load();
+  sendSound.volume = 0.6; // 设置音量为60%
+}
+
 const imageContentStyle = `
   .image-content:hover {
     background: transparent !important;
@@ -347,6 +361,11 @@ export default function ChatRoom() {
       let hasNewMessage = false;
       
       for (const msg of newMessages) {
+        // 播放接收消息音效
+        if (!isHistory && msg.type === 'message' && msg.userId !== userId) {
+          notifySound?.play().catch(err => console.log('播放通知音效失败:', err));
+        }
+        
         // 处理删除消息和编辑消息
         if (msg.type === 'system') {
           try {
@@ -733,6 +752,9 @@ export default function ChatRoom() {
   const handleSubmitMessage = (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
     if (messageInput.trim()) {
+      // 播放发送消息音效
+      sendSound?.play().catch(err => console.log('播放发送音效失败:', err));
+      
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       if (editingMessageId) {
         // 发送编辑消息
