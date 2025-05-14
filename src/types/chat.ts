@@ -1,4 +1,4 @@
-export type MessageType = 'message' | 'system' | 'join' | 'leave' | 'error' | 'edit' | 'delete';
+export type MessageType = 'message' | 'system' | 'join' | 'leave' | 'error' | 'edit' | 'delete' | 'onlineList';
 
 export interface FileMeta {
   fileName: string;
@@ -18,11 +18,17 @@ export interface Message {
 }
 
 export interface ReceiveMessage extends Message {
-  id: string;  // 服务器生成的唯一消息ID
+  id: string;  // 服务器生成的唯一消息ID，对于 onlineList 类型可能为空
   roomId: string;
   userId: string;
   timestamp: number;
   isNew?: boolean;  // 用于标记新消息，控制动画效果
+}
+
+export interface OnlineListMessage extends Omit<ReceiveMessage, 'id'> {
+  type: 'onlineList';
+  userId: 'system';
+  content: string; // JSON.stringify(string[]) - 在线用户ID数组
 }
 
 export interface HistoryResponse {

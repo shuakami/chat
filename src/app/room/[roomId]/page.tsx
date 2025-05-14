@@ -13,6 +13,75 @@ import throttle from 'lodash.throttle';
 import './terminal-styles.css';
 import '@/styles/terminal-emoji.css';
 
+// 在文件顶部添加样式
+const systemMessageStyle = `
+  .message.system-msg {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    position: relative;
+    transform-origin: top;
+    max-height: 500px;
+    opacity: 1;
+  }
+  
+  .message.system-msg.collapsed {
+    opacity: 0.5;
+    max-height: 24px;
+    cursor: pointer;
+    color: #666;
+  }
+  
+  .message.system-msg.collapsed:hover {
+    opacity: 0.7;
+    color: #888;
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+  
+  .message.system-msg:not(.collapsed):hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .message.system-msg .message-content {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .message.system-msg.collapsed .message-content {
+    transform: translateY(-2px);
+  }
+`;
+
+// 添加样式
+const atMessageStyle = `
+  .at-mention {
+    color: #7eb6ff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0 2px;
+    border-radius: 3px;
+  }
+
+  .at-mention:hover {
+    background-color: rgba(126, 182, 255, 0.1);
+  }
+
+  .message.mentioned {
+    background-color: rgba(126, 182, 255, 0.05);
+  }
+
+  .message.mentioned:hover {
+    background-color: rgba(126, 182, 255, 0.08);
+  }
+
+  .user-nick {
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .user-nick:hover {
+    color: #7eb6ff;
+  }
+`;
+
 // 扩展ReceiveMessage类型
 interface ExtendedReceiveMessage extends ReceiveMessage {
   deleting?: boolean;
@@ -133,7 +202,6 @@ export default function ChatRoom() {
   const { roomId } = useParams();
   const [isInitialized, setIsInitialized] = useState(false);
   const [userId, setUserId] = useState<string>('');
-  const [userIdInput, setUserIdInput] = useState('');
   const [isJoined, setIsJoined] = useState(false);
   const [joinTimestamp, setJoinTimestamp] = useState<number>(0);
   const [messageInput, setMessageInput] = useState('');
@@ -159,6 +227,14 @@ export default function ChatRoom() {
     content: string;
   } | null>(null);
 
+  const [showPrompt] = useState(true);
+  const [nickInput, setNickInput] = useState('');
+  const [caretPosition, setCaretPosition] = useState({ left: 0, top: 0, height: 0 });
+  const loginInputRef = useRef<HTMLInputElement>(null);
+
+  const [collapsedMessages, setCollapsedMessages] = useState<Set<string>>(new Set());
+  const [mentionedMessages, setMentionedMessages] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     const savedUserId = Cookies.get(USER_ID_COOKIE);
     if (savedUserId) {
@@ -170,60 +246,55 @@ export default function ChatRoom() {
   }, []);
 
   const handleNewMessages = useCallback((newMessages: ReceiveMessage[]) => {
+    console.log('收到新消息:', newMessages);
+    
     setAllMessages((prevMessages) => {
       const messages = [...prevMessages] as ExtendedReceiveMessage[];
       let hasNewMessage = false;
       
       for (const msg of newMessages) {
-        // 处理删除消息
-        if (msg.type === 'delete') {
-          const messageToDelete = messages.find(m => m.id === msg.messageId);
-          if (messageToDelete) {
-            messageToDelete.deleting = true;
+        // 处理在线用户列表更新
+        if (msg.type === 'onlineList' && msg.userId === 'system') {
+          console.log('处理在线用户列表:', msg);
+          try {
+            const onlineUsers = JSON.parse(msg.content);
+            console.log('解析后的在线用户:', onlineUsers);
+            const otherUsers = onlineUsers.filter((user: string) => user !== userId);
+            console.log('其他在线用户:', otherUsers);
+            
+            let content = '';
+            if (otherUsers.length === 0) {
+              content = '这个房间里面除了你没有其他人在线，不过你可以留言，他们看得到';
+            } else {
+              content = `这个房间里面有 ${otherUsers.join('、')} ${otherUsers.length > 1 ? '（共' + otherUsers.length + '人）' : ''} 在线`;
+            }
+            
+            // 确保消息 ID 的唯一性
+            const messageId = `online-list-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            const newMessage: ExtendedReceiveMessage = {
+              ...msg,
+              content,
+              isNew: true,
+              id: messageId,
+            };
+            
+            // 设置自动折叠
             setTimeout(() => {
-              setAllMessages(prev => prev.filter(m => m.id !== msg.messageId));
-            }, 300);
+              setCollapsedMessages(prev => new Set([...prev, messageId]));
+            }, 5000);
+            
+            console.log('创建的系统消息:', newMessage);
+            messages.push(newMessage);
+            hasNewMessage = true;
+            continue;
+          } catch (e) {
+            console.error('解析在线用户列表失败:', e, '原始内容:', msg.content);
           }
-          continue;
         }
         
-        // 处理系统消息中的删除和编辑确认
-        if (msg.type === 'system' && msg.userId === 'system') {
-          try {
-            const actionData = JSON.parse(msg.content);
-            
-            if (actionData.action === 'delete') {
-              const messageToDelete = messages.find(m => m.id === actionData.messageId);
-              if (messageToDelete) {
-                messageToDelete.deleting = true;
-                setTimeout(() => {
-                  setAllMessages(prev => prev.filter(m => m.id !== actionData.messageId));
-                }, 300);
-              }
-              continue;
-            }
-            
-            if (actionData.action === 'edit') {
-              const newMessage = actionData.newMessage;
-              const index = messages.findIndex(m => m.id === actionData.messageId);
-              if (index !== -1) {
-                messages[index] = {
-                  ...messages[index],
-                  content: newMessage.content,
-                  timestamp: newMessage.timestamp,
-                  type: 'edit'
-                };
-              }
-              continue;
-            }
-          } catch (e) {
-            console.error('Failed to parse system message:', e);
-          }
-        }
-
         // 处理其他消息
         const exists = messages.some(
-          (m) => m.timestamp === msg.timestamp && m.userId === msg.userId && m.content === msg.content
+          (m) => m.id === msg.id || (m.timestamp === msg.timestamp && m.userId === msg.userId && m.content === msg.content)
         );
 
         if (!exists) {
@@ -231,11 +302,23 @@ export default function ChatRoom() {
             continue;
           }
           
-          messages.push({
+          // 确保每条消息都有唯一的 ID
+          const messageId = msg.id || `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          const newMsg = {
             ...msg,
+            id: messageId,
             isNew: true
-          } as ExtendedReceiveMessage);
+          } as ExtendedReceiveMessage;
+          
+          messages.push(newMsg);
           hasNewMessage = true;
+
+          // 如果是系统消息，设置自动折叠
+          if (msg.type === 'system' || msg.type === 'join' || msg.type === 'leave') {
+            setTimeout(() => {
+              setCollapsedMessages(prev => new Set([...prev, messageId]));
+            }, 5000);
+          }
         }
       }
 
@@ -247,7 +330,7 @@ export default function ChatRoom() {
 
       return messages.sort((a, b) => a.timestamp - b.timestamp);
     });
-  }, [joinTimestamp]);
+  }, [joinTimestamp, userId]);
 
   // 处理消息动画
   useEffect(() => {
@@ -382,17 +465,14 @@ export default function ChatRoom() {
     setIsInputFocused(false);
   };
 
-  const handleJoinRoom = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleJoin = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (userIdInput.trim()) {
-      const newUserId = userIdInput.trim();
-      setUserId(newUserId);
+    if (nickInput.trim()) {
+      setUserId(nickInput.trim());
       setIsJoined(true);
       const currentTimestamp = Date.now();
-      setJoinTimestamp(currentTimestamp); // 确保在加入时设置时间戳
-      Cookies.set(USER_ID_COOKIE, newUserId, { expires: 30 });
-      // 发送加入消息，但不显示给自己
-      // sendMessage({ type: 'join', content: `${newUserId} 加入了房间。` });
+      setJoinTimestamp(currentTimestamp);
+      Cookies.set(USER_ID_COOKIE, nickInput.trim(), { expires: 30 });
     }
   };
 
@@ -420,9 +500,74 @@ export default function ChatRoom() {
     }
   };
 
+  // 处理点击用户名
+  const handleUserNameClick = useCallback((userName: string) => {
+    if (inputRef.current) {
+      const currentValue = inputRef.current.value;
+      const cursorPosition = inputRef.current.selectionStart || 0;
+      
+      // 在光标位置插入@用户名
+      const newValue = 
+        currentValue.slice(0, cursorPosition) +
+        `@${userName} ` +
+        currentValue.slice(cursorPosition);
+      
+      setMessageInput(newValue);
+      
+      // 设置光标位置
+      setTimeout(() => {
+        if (inputRef.current) {
+          const newPosition = cursorPosition + userName.length + 2; // @ + username + space
+          inputRef.current.focus();
+          inputRef.current.setSelectionRange(newPosition, newPosition);
+        }
+      }, 0);
+    }
+  }, []);
+
+  // 解析消息中的@提及
+  const parseAtMentions = useCallback((content: string) => {
+    const atPattern = /@(\S+)/g;
+    let lastIndex = 0;
+    const parts = [];
+    let match;
+
+    while ((match = atPattern.exec(content)) !== null) {
+      // 添加@之前的文本
+      if (match.index > lastIndex) {
+        parts.push(content.slice(lastIndex, match.index));
+      }
+      
+      // 添加@提及
+      const mentionedUser = match[1];
+      parts.push(
+        <span 
+          key={`mention-${match.index}`}
+          className="at-mention"
+          onClick={() => handleUserNameClick(mentionedUser)}
+        >
+          @{mentionedUser}
+        </span>
+      );
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // 添加剩余文本
+    if (lastIndex < content.length) {
+      parts.push(content.slice(lastIndex));
+    }
+    
+    return parts;
+  }, [handleUserNameClick]);
+
+  // 修改消息发送逻辑
   const handleSubmitMessage = (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
     if (messageInput.trim()) {
+      // 检查消息中的@提及
+      const atMentions = messageInput.match(/@(\S+)/g)?.map(mention => mention.slice(1)) || [];
+      
       if (editingMessageId) {
         // 发送编辑消息
         sendMessage({
@@ -430,6 +575,7 @@ export default function ChatRoom() {
           messageId: editingMessageId,
           content: messageInput.trim(),
           originalContent: editingContent,
+          mentions: atMentions
         });
         setEditingMessageId(null);
         setEditingContent('');
@@ -438,6 +584,7 @@ export default function ChatRoom() {
         sendMessage({
           type: 'message',
           content: messageInput.trim(),
+          mentions: atMentions
         });
       }
       setMessageInput('');
@@ -569,7 +716,7 @@ export default function ChatRoom() {
         </a>
       );
     }
-    return <span className="message-text">{msg.content}</span>;
+    return <span className="message-text">{parseAtMentions(msg.content)}</span>;
   };
 
   // 处理右键点击
@@ -618,9 +765,64 @@ export default function ChatRoom() {
     }
   }, [contextMenu]);
 
+  const toggleMessageCollapse = useCallback((messageId: string) => {
+    setCollapsedMessages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const renderSystemMessage = (msg: ExtendedReceiveMessage, messageKey: string) => {
+    const isCollapsed = collapsedMessages.has(msg.id || messageKey);
+    
+    let messageType = 'SystemMessage';
+    if (msg.type === 'join') {
+      messageType = 'UserJoined';
+    } else if (msg.type === 'leave') {
+      messageType = 'UserLeft';
+    } else if (msg.type === 'onlineList') {
+      messageType = 'OnlineUsers';
+    }
+
+    let content = msg.content;
+    if (msg.type === 'join') {
+      content = `${msg.userId} 进入了房间`;
+    } else if (msg.type === 'leave') {
+      content = `${msg.userId} 离开了房间`;
+    }
+    
+    return (
+      <div 
+        key={messageKey} 
+        className={`message system-msg ${isCollapsed ? 'collapsed' : ''}`}
+        data-is-new={msg.isNew}
+        data-deleting={msg.deleting}
+        onClick={() => toggleMessageCollapse(msg.id || messageKey)}
+        style={{ cursor: 'pointer' }}
+      >
+        <div className="message-content">
+          <span className="timestamp">[{new Date(msg.timestamp).toLocaleTimeString()}]</span>
+          {isCollapsed ? (
+            <span className="message-text"> {messageType}</span>
+          ) : (
+            <span className="message-text"> {content}</span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderMessage = (msg: ExtendedReceiveMessage) => {
     const isCurrentUser = msg.userId === userId;
-    const messageKey = `${msg.type}-${msg.timestamp}-${msg.userId}-${msg.content?.slice(0,10)}`;
+    const messageKey = msg.id || `${msg.type}-${msg.timestamp}-${Math.random().toString(36).slice(2)}-${msg.userId}`;
+    
+    // 检查消息是否提及了当前用户
+    const isMentioned = msg.mentions?.includes(userId);
 
     if (!isJoined && (msg.type === 'join' || msg.type === 'leave')) {
       return null;
@@ -629,38 +831,18 @@ export default function ChatRoom() {
     if (msg.type === 'join' || msg.type === 'leave') {
       if (msg.userId === userId && msg.type === 'join') return null;
       if (msg.timestamp < joinTimestamp) return null; 
-      return (
-        <div 
-          key={messageKey} 
-          className="message system-msg" 
-          data-is-new={msg.isNew}
-          data-deleting={msg.deleting}
-        >
-          <span className="timestamp">[{new Date(msg.timestamp).toLocaleTimeString()}]</span>
-          <span className="message-text">{msg.content}</span>
-        </div>
-      );
+      return renderSystemMessage(msg, messageKey);
     }
 
-    if (msg.type === 'system' || msg.type === 'error') {
-      return (
-        <div 
-          key={messageKey} 
-          className="message system-msg" 
-          data-is-new={msg.isNew}
-          data-deleting={msg.deleting}
-        >
-          <span className="timestamp">[{new Date(msg.timestamp).toLocaleTimeString()}]</span>
-          <span className="message-text">{msg.content}</span>
-        </div>
-      );
+    if (msg.type === 'system' || msg.type === 'error' || msg.type === 'onlineList') {
+      return renderSystemMessage(msg, messageKey);
     }
 
     if (msg.type === 'message' || msg.type === 'edit') {
       return (
         <div 
           key={messageKey} 
-          className={`message ${isCurrentUser ? 'self-msg' : 'user-msg'}`} 
+          className={`message ${isCurrentUser ? 'self-msg' : 'user-msg'} ${isMentioned ? 'mentioned' : ''}`}
           data-is-new={msg.isNew}
           data-message-id={msg.id}
           data-editing={editingMessageId === msg.id}
@@ -669,7 +851,14 @@ export default function ChatRoom() {
         >
           <div className={`message-content ${msg.fileMeta?.emoji_id ? 'image-content' : ''}`}>
             <span className="timestamp">[{new Date(msg.timestamp).toLocaleTimeString()}]</span>
-            {!isCurrentUser && <span className="user-nick">[{msg.userId}]</span>}
+            {!isCurrentUser && (
+              <span 
+                className="user-nick"
+                onClick={() => handleUserNameClick(msg.userId)}
+              >
+                [{msg.userId}]
+              </span>
+            )}
             {isCurrentUser && <span className="user-nick self-nick">[{msg.userId}]</span>}
             &nbsp;
             {renderMessageContent(msg, isCurrentUser)}
@@ -711,6 +900,35 @@ export default function ChatRoom() {
     };
   }, []);
 
+  // 更新光标位置
+  useEffect(() => {
+    if (loginInputRef.current && showCustomCaret && !isJoined) {
+      const updateCaretPosition = () => {
+        const input = loginInputRef.current;
+        if (!input) return;
+        const { selectionStart, value } = input;
+        const textBeforeCaret = value.substring(0, selectionStart || 0);
+        const span = document.createElement('span');
+        span.style.font = window.getComputedStyle(input).font;
+        span.style.visibility = 'hidden';
+        span.style.position = 'absolute';
+        span.textContent = textBeforeCaret;
+        document.body.appendChild(span);
+        const { offsetLeft, offsetTop, offsetHeight } = input;
+        const textWidth = span.offsetWidth;
+        document.body.removeChild(span);
+        setCaretPosition({
+          left: offsetLeft + textWidth,
+          top: offsetTop,
+          height: offsetHeight
+        });
+      };
+      updateCaretPosition();
+      window.addEventListener('resize', updateCaretPosition);
+      return () => window.removeEventListener('resize', updateCaretPosition);
+    }
+  }, [nickInput, showCustomCaret, isJoined]);
+
   if (!isInitialized) {
     return (
         <>
@@ -731,28 +949,44 @@ export default function ChatRoom() {
       <>
         <style jsx global>{imageContentStyle}</style>
         <div className="crt-overlay"></div>
-        <section id="login-form" className="terminal">
-          <div className="terminal-content">
+        <section id="login-form" className="terminal" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <div className="terminal-content !mt-[55px]">
             <div className="message system-msg" data-is-new={true}>Private Chat Terminal v{APP_VERSION}</div>
-            <div className="message system-msg" data-is-new={true}>使用此客户端以使您在无法访问 Private 的情况下正常聊天</div>
+            <div className="message system-msg" data-is-new={true}>使用此客户端以使您在无法访问通讯软件的情况下正常聊天</div>
             <div className="message system-msg" data-is-new={true}>当前房间: {roomId}</div>
-            
-            <form onSubmit={handleJoinRoom}>
-              <div className="input-line">
-                <span className="prompt">$</span>
-                <input 
-                  id="nick-input" 
-                  className="input-field"
-                  type="text" 
-                  placeholder="输入昵称后回车…"
-                  value={userIdInput}
-                  onChange={(e) => setUserIdInput(e.target.value)}
-                  autoComplete="off"
-                  required 
-                />
-              </div>
-              <button type="submit" style={{display: 'none'}}>Join</button>
-            </form>
+            {showPrompt && (
+              <form onSubmit={handleJoin} className="terminal-form" data-is-new={true}>
+                <div className="message input-line">
+                  <span className="prompt">$</span>
+                  <input
+                    ref={loginInputRef}
+                    type="text"
+                    id="nick-input"
+                    className="input-field"
+                    value={nickInput}
+                    onChange={e => setNickInput(e.target.value)}
+                    placeholder="输入昵称后回车…"
+                    autoComplete="off"
+                    autoFocus
+                    required
+                    onFocus={() => setShowCustomCaret(true)}
+                    onBlur={() => setShowCustomCaret(false)}
+                  />
+                  {showCustomCaret && (
+                    <div
+                      className="custom-caret"
+                      style={{
+                        left: `${caretPosition.left}px`,
+                        top: `${caretPosition.top}px`,
+                        height: `${caretPosition.height}px`,
+                        animation: 'blinkCustomCaret 1s step-end infinite'
+                      }}
+                    />
+                  )}
+                </div>
+                <button type="submit" style={{ display: 'none' }}>Join</button>
+              </form>
+            )}
           </div>
         </section>
       </>
@@ -762,7 +996,9 @@ export default function ChatRoom() {
   // 聊天主视图
   return (
     <>
+      <style jsx global>{systemMessageStyle}</style>
       <style jsx global>{imageContentStyle}</style>
+      <style jsx global>{atMessageStyle}</style>
       <div className="crt-overlay"></div>
       <section id="chat-area" className="terminal">
         <div className="terminal-content">
