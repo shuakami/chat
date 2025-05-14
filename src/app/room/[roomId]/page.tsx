@@ -1167,6 +1167,73 @@ export default function ChatRoom() {
     }
   }, [isJoined, requestNotificationPermission]);
 
+  const handleClipboardPaste = useCallback(async (e: ClipboardEvent) => {
+    if (!isConnected || uploading) return;
+    
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          try {
+            const response = await uploadFile(file);
+            if (response && response.meta) {
+              const fileMeta = {
+                fileName: response.meta.fileName,
+                fileSize: response.meta.fileSize,
+                mimeType: response.meta.mimeType,
+                url: response.url,
+                encryption: response.meta.encryption,
+              };
+              sendMessage({
+                type: 'message',
+                content: `[图片] ${file.name}`,
+                fileMeta: fileMeta,
+              });
+            }
+          } catch (err) {
+            console.error('剪贴板图片上传失败:', err);
+          }
+        }
+      } else if (item.type.startsWith('application/') || item.type.startsWith('text/')) {
+        const file = item.getAsFile();
+        if (file) {
+          try {
+            const response = await uploadFile(file);
+            if (response && response.meta) {
+              const fileMeta = {
+                fileName: response.meta.fileName,
+                fileSize: response.meta.fileSize,
+                mimeType: response.meta.mimeType,
+                url: response.url,
+                encryption: response.meta.encryption,
+              };
+              sendMessage({
+                type: 'message',
+                content: `[文件] ${file.name}`,
+                fileMeta: fileMeta,
+              });
+            }
+          } catch (err) {
+            console.error('剪贴板文件上传失败:', err);
+          }
+        }
+      }
+    }
+  }, [isConnected, uploading, uploadFile, sendMessage]);
+
+  // 添加事件监听
+  useEffect(() => {
+    if (isJoined) {
+      document.addEventListener('paste', handleClipboardPaste);
+      return () => {
+        document.removeEventListener('paste', handleClipboardPaste);
+      };
+    }
+  }, [isJoined, handleClipboardPaste]);
+
   if (!isInitialized) {
     return (
         <>
