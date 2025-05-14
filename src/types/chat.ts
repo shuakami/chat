@@ -55,4 +55,5 @@ export interface SendMessage {
   fileMeta?: FileMeta;
   messageId?: string;  // 可选，如果不提供会自动生成
   originalContent?: string;  // 仅在编辑消息时存在
+  tempId?: string;  // 临时消息ID，用于前端追踪消息状态
 } 

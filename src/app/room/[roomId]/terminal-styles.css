@@ -17,6 +17,16 @@
   --user-nick-color: #00aaff;
   --user-nick-hover-color: #66ccff;
   --border-color: #222222;
+  
+  /* @消息相关的颜色变量 */
+  --at-text-color: #33ff00;
+  --at-bg-color: rgba(51, 255, 0, 0.08);
+  --at-hover-bg-color: rgba(51, 255, 0, 0.12);
+  --at-self-text-color: #00ffff;
+  --at-self-bg-color: rgba(0, 255, 255, 0.08);
+  --at-self-hover-bg-color: rgba(0, 255, 255, 0.12);
+  --edit-highlight-color: rgba(0, 255, 0, 0.15);
+  --edit-text-color: #888888;
 }
 
 /* 全局基础 */
@@ -163,14 +173,18 @@ body {
 
 /* 消息与高亮 */
 .message {
-  margin: 6px auto;
   position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  transform-origin: center;
+  margin: 6px auto;
   padding-left: 24px;
   word-wrap: break-word;
   line-height: 1.5;
   max-width: min(900px, 92%);
   width: 100%;
-  transition: background-color 0.2s ease;
+  will-change: transform, opacity;
 }
 
 .message:not([data-editing="true"]):not([data-context-menu="true"]):hover {
@@ -190,8 +204,7 @@ body {
 
 /* 动画相关 */
 [data-is-new="true"] {
-  opacity: 0;
-  animation: fadeIn 0.3s ease forwards;
+  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 /* 系统消息的特殊处理 */
@@ -200,13 +213,13 @@ body {
 }
 
 @keyframes fadeIn {
-  0% { 
-    opacity: 0; 
-    transform: translateY(5px); 
+  from { 
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
   }
-  100% { 
-    opacity: 0.8; 
-    transform: translateY(0); 
+  to { 
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -959,8 +972,86 @@ html, body {
 }
 
 .message[data-deleting="true"] {
-  animation: fadeOut 0.3s ease forwards;
+  opacity: 0;
+  transform: translateX(30px) scale(0.95);
+  margin-top: -6px;
+  margin-bottom: -6px;
   pointer-events: none;
+}
+
+.at-mention {
+  color: var(--at-text-color) !important;
+  background-color: var(--at-bg-color) !important;
+  padding: 2px 4px !important;
+  border-radius: 2px !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+  display: inline-block !important;
+  text-shadow: var(--glow) !important;
+  border: 1px solid rgba(51, 255, 0, 0.1) !important;
+}
+
+.at-mention:hover {
+  background-color: var(--at-hover-bg-color) !important;
+  border-color: rgba(51, 255, 0, 0.2) !important;
+}
+
+.at-mention.self {
+  color: var(--at-self-text-color) !important;
+  background-color: var(--at-self-bg-color) !important;
+  text-shadow: 0 0 2px rgba(0, 255, 255, 0.2) !important;
+  border-color: rgba(0, 255, 255, 0.1) !important;
+}
+
+.at-mention.self:hover {
+  background-color: var(--at-self-hover-bg-color) !important;
+  border-color: rgba(0, 255, 255, 0.2) !important;
+}
+
+.clickable {
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+}
+
+.clickable:hover {
+  opacity: 0.8 !important;
+  text-decoration: underline !important;
+}
+
+/* 编辑动画 */
+@keyframes messageEdit {
+  0% {
+    background-color: var(--edit-highlight-color);
+    transform: scale(1.01);
+  }
+  50% {
+    background-color: var(--edit-highlight-color);
+    transform: scale(1.01);
+  }
+  100% {
+    background-color: transparent;
+    transform: scale(1);
+  }
+}
+
+.message[data-editing="true"] .message-content {
+  animation: messageEdit 1.5s ease-out forwards;
+}
+
+/* 已编辑标记样式 */
+.edit-indicator {
+  font-size: 12px;
+  color: var(--edit-text-color);
+  margin-left: 8px;
+  opacity: 0.8;
+  font-style: italic;
+  display: inline-block;
+  vertical-align: middle;
+  transition: opacity 0.2s;
+}
+
+.message:hover .edit-indicator {
+  opacity: 1;
 }
 
 

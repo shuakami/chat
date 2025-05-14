@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -50,42 +50,16 @@ const systemMessageStyle = `
   }
 `;
 
-// 添加样式
-const atMessageStyle = `
-  .at-mention {
-    color: #7eb6ff;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    padding: 0 2px;
-    border-radius: 3px;
-  }
-
-  .at-mention:hover {
-    background-color: rgba(126, 182, 255, 0.1);
-  }
-
-  .message.mentioned {
-    background-color: rgba(126, 182, 255, 0.05);
-  }
-
-  .message.mentioned:hover {
-    background-color: rgba(126, 182, 255, 0.08);
-  }
-
-  .user-nick {
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .user-nick:hover {
-    color: #7eb6ff;
-  }
-`;
-
-// 扩展ReceiveMessage类型
+// 移除未使用的SendMessage接口
 interface ExtendedReceiveMessage extends ReceiveMessage {
   deleting?: boolean;
   isNew?: boolean;
+  isEdited?: boolean;
+  editing?: boolean;
+  messageId?: string;
+  id: string;
+  roomId: string;
+  timestamp: number;
 }
 
 const USER_ID_COOKIE = 'chat_user_id';
@@ -198,6 +172,17 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   );
 };
 
+// 添加通知相关状态和函数
+const APP_TITLE = 'Private Chat Terminal';
+
+// 扩展 NotificationOptions 类型
+interface ExtendedNotificationOptions extends NotificationOptions {
+  actions?: {
+    action: string;
+    title: string;
+  }[];
+}
+
 export default function ChatRoom() {
   const { roomId } = useParams();
   const [isInitialized, setIsInitialized] = useState(false);
@@ -233,7 +218,10 @@ export default function ChatRoom() {
   const loginInputRef = useRef<HTMLInputElement>(null);
 
   const [collapsedMessages, setCollapsedMessages] = useState<Set<string>>(new Set());
-  const [mentionedMessages, setMentionedMessages] = useState<Set<string>>(new Set());
+
+  // 添加通知相关状态
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+
 
   useEffect(() => {
     const savedUserId = Cookies.get(USER_ID_COOKIE);
@@ -245,14 +233,194 @@ export default function ChatRoom() {
     setIsInitialized(true);
   }, []);
 
-  const handleNewMessages = useCallback((newMessages: ReceiveMessage[]) => {
-    console.log('收到新消息:', newMessages);
+  // 请求通知权限
+  const requestNotificationPermission = useCallback(async () => {
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      return permission;
+    } catch (error) {
+      console.error('请求通知权限失败:', error);
+      return 'denied' as NotificationPermission;
+    }
+  }, []);
+
+  // 注册 Service Worker
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.log('Service Worker 注册成功:', registration);
+        })
+        .catch(error => {
+          console.error('Service Worker 注册失败:', error);
+        });
+    }
+  }, []);
+
+  // 初始化通知权限状态
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
+
+  // 发送通知
+  const sendNotification = useCallback((title: string, body: string) => {
+    console.log('尝试发送通知:', { title, body });
+    if (!('Notification' in window)) {
+      console.warn('浏览器不支持通知功能');
+      return;
+    }
+
+    if (notificationPermission !== 'granted') {
+      console.log('没有通知权限，请求权限...');
+      requestNotificationPermission();
+      return;
+    }
+
+    try {
+      // 检查是否支持 ServiceWorker
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        // 使用 ServiceWorker 显示通知
+        navigator.serviceWorker.ready.then((registration) => {
+          registration.showNotification(title, {
+            body,
+            icon: '/favicon.ico',
+            badge: '/favicon.ico', // Windows通知中心的小图标
+            tag: 'chat-message',
+            requireInteraction: true, // 通知会一直显示直到用户交互
+            silent: false, // 允许声音
+            actions: [
+              {
+                action: 'open',
+                title: '打开聊天'
+              },
+              {
+                action: 'close',
+                title: '关闭'
+              }
+            ]
+          } as ExtendedNotificationOptions);
+        });
+      } else {
+        // 降级为普通通知
+        const notification = new Notification(title, {
+          body,
+          icon: '/favicon.ico',
+          tag: 'chat-message'
+        });
+
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+        };
+      }
+
+      console.log('通知发送成功');
+    } catch (error) {
+      console.error('发送通知失败:', error);
+    }
+  }, [notificationPermission, requestNotificationPermission]);
+
+  // 监听页面可见性变化
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // 页面变为可见时，重置标题
+        document.title = `${APP_TITLE} - ${roomId}`;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [roomId]);
+
+  // 修改消息处理相关代码
+  const handleNewMessages = useCallback((newMessages: ReceiveMessage[], isHistory?: boolean) => {
+    console.log('收到新消息:', newMessages, '是否是历史消息:', isHistory, '页面可见性:', !document.hidden, '当前用户:', userId);
     
     setAllMessages((prevMessages) => {
       const messages = [...prevMessages] as ExtendedReceiveMessage[];
       let hasNewMessage = false;
       
       for (const msg of newMessages) {
+        // 处理删除消息和编辑消息
+        if (msg.type === 'system') {
+          try {
+            const systemAction = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content;
+            
+            // 处理删除操作
+            if (systemAction.action === 'delete' && systemAction.messageId) {
+              console.log('处理删除消息:', systemAction);
+              const messageIndex = messages.findIndex(m => m.id === systemAction.messageId);
+              if (messageIndex !== -1) {
+                messages[messageIndex] = {
+                  ...messages[messageIndex],
+                  deleting: true
+                };
+                setTimeout(() => {
+                  setAllMessages(prev => 
+                    prev.filter(m => m.id !== systemAction.messageId)
+                  );
+                }, 300);
+              }
+              continue;
+            }
+            
+            // 处理编辑操作
+            if (systemAction.action === 'edit' && systemAction.messageId && systemAction.newMessage) {
+              console.log('处理编辑消息:', systemAction);
+              const messageIndex = messages.findIndex(m => m.id === systemAction.messageId);
+              if (messageIndex !== -1) {
+                // 保存旧消息的一些属性
+                const oldMessage = messages[messageIndex];
+                
+                // 先标记为编辑中
+                messages[messageIndex] = {
+                  ...oldMessage,
+                  editing: true
+                };
+
+                // 使用 setTimeout 来确保动画正确触发
+                setTimeout(() => {
+                  setAllMessages(prev => {
+                    const newMessages = [...prev];
+                    const targetIndex = newMessages.findIndex(m => m.id === systemAction.messageId);
+                    if (targetIndex !== -1) {
+                      newMessages[targetIndex] = {
+                        ...oldMessage,
+                        content: systemAction.newMessage.content,
+                        timestamp: systemAction.newMessage.timestamp,
+                        userId: systemAction.newMessage.userId,
+                        isEdited: true,
+                        editing: true
+                      };
+                    }
+                    return newMessages;
+                  });
+
+                  // 延迟移除编辑状态
+                  setTimeout(() => {
+                    setAllMessages(prev => 
+                      prev.map(m => 
+                        m.id === systemAction.messageId 
+                          ? { ...m, editing: false }
+                          : m
+                      )
+                    );
+                  }, 1500);
+                }, 50);
+              }
+              continue;
+            }
+          } catch (e) {
+            console.error('解析系统消息失败:', e, '原始消息:', msg);
+          }
+        }
+
         // 处理在线用户列表更新
         if (msg.type === 'onlineList' && msg.userId === 'system') {
           console.log('处理在线用户列表:', msg);
@@ -292,6 +460,28 @@ export default function ChatRoom() {
           }
         }
         
+        // 处理消息ID更新
+        if (msg.type === 'message' && msg.messageId) {
+          // 查找是否存在对应的临时消息
+          const tempMessageIndex = messages.findIndex(
+            m => m.userId === userId && 
+            m.content === msg.content && 
+            m.type === 'message' && 
+            m.id?.startsWith('temp-')
+          );
+          
+          if (tempMessageIndex !== -1) {
+            // 更新临时消息的ID，并将isNew设为false
+            messages[tempMessageIndex] = {
+              ...messages[tempMessageIndex],
+              id: msg.messageId,
+              timestamp: msg.timestamp || messages[tempMessageIndex].timestamp,
+              isNew: false // 直接设置为false，避免再次触发动画
+            };
+            continue;
+          }
+        }
+        
         // 处理其他消息
         const exists = messages.some(
           (m) => m.id === msg.id || (m.timestamp === msg.timestamp && m.userId === msg.userId && m.content === msg.content)
@@ -303,7 +493,7 @@ export default function ChatRoom() {
           }
           
           // 确保每条消息都有唯一的 ID
-          const messageId = msg.id || `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          const messageId = msg.messageId || msg.id || `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`;
           const newMsg = {
             ...msg,
             id: messageId,
@@ -320,28 +510,68 @@ export default function ChatRoom() {
             }, 5000);
           }
         }
+
+        // 处理新消息通知，使用isHistory参数
+        if (!isHistory && document.hidden && msg.type === 'message' && msg.userId !== userId) {
+          console.log('触发通知条件:', {
+            isHistory,
+            isHidden: document.hidden,
+            msgType: msg.type,
+            sender: msg.userId,
+            currentUser: userId
+          });
+
+          // 更新标题
+          const newCount = document.title.match(/^\((\d+)\)/) 
+            ? Number(document.title.match(/^\((\d+)\)/)?.[1] || 0) + 1 
+            : 1;
+          document.title = `(${newCount}) ${APP_TITLE} - ${roomId}`;
+
+          // 发送通知
+          sendNotification(
+            `来自 ${msg.userId} 的新消息`,
+            msg.content
+          );
+        }
       }
 
       if (hasNewMessage) {
+        // 如果是历史消息，使用auto行为立即滚动，否则使用平滑滚动
         setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
+          messagesEndRef.current?.scrollIntoView({ 
+            behavior: isHistory ? 'auto' : 'smooth' 
+          });
+        }, isHistory ? 0 : 100);
       }
 
       return messages.sort((a, b) => a.timestamp - b.timestamp);
     });
-  }, [joinTimestamp, userId]);
+  }, [userId, roomId, sendNotification]);
 
   // 处理消息动画
   useEffect(() => {
     const newMessages = document.querySelectorAll('.message[data-is-new="true"]');
     newMessages.forEach(msg => {
+      const messageId = msg.getAttribute('data-message-id');
+      if (!messageId) return;
+
       msg.classList.add('animate-new');
-      // 动画结束后移除标记
+      
+      // 动画结束后移除标记并更新React状态
       const onAnimationEnd = () => {
         msg.classList.remove('animate-new');
         msg.removeAttribute('data-is-new');
+        
+        // 更新React状态中的isNew标记
+        setAllMessages(prev => 
+          prev.map(m => 
+            m.id === messageId 
+              ? { ...m, isNew: false }
+              : m
+          )
+        );
       };
+      
       msg.addEventListener('animationend', onAnimationEnd, { once: true });
     });
   }, [allMessages]);
@@ -371,43 +601,43 @@ export default function ChatRoom() {
 
   // useCallback 用于记忆 throttledUpdateCustomCaretPosition 函数本身
   const actualUpdateCustomCaretPosition = useCallback(() => {
-    if (inputRef.current && showCustomCaret && isInputFocused) {
-      const textarea = inputRef.current;
-      const position = textarea.selectionStart;
-      const coordinates = getCaretCoordinates(textarea, position);
-      const scrollTop = textarea.scrollTop;
-      const scrollLeft = textarea.scrollLeft;
+    if (!inputRef.current || !showCustomCaret || !isInputFocused) return;
 
-      latestCoordsRef.current = {
-        top: coordinates.top - scrollTop,
-        left: (coordinates.left - scrollLeft) + 3,
-        height: coordinates.height,
-      };
+    const textarea = inputRef.current;
+    const position = textarea.selectionStart;
+    const coordinates = getCaretCoordinates(textarea, position);
+    const scrollTop = textarea.scrollTop;
+    const scrollLeft = textarea.scrollLeft;
 
-      if (rafIdRef.current === null) {
-        rafIdRef.current = requestAnimationFrame(() => {
-          const currentHeight = latestCoordsRef.current.height;
-          const currentTop = latestCoordsRef.current.top;
+    latestCoordsRef.current = {
+      top: coordinates.top - scrollTop,
+      left: (coordinates.left - scrollLeft) + 3,
+      height: coordinates.height,
+    };
 
-          const newHeight = Math.max(2, currentHeight - 4);
-          const heightReduction = currentHeight - newHeight;
-          const newTop = currentTop - heightReduction / 4;
+    if (rafIdRef.current === null) {
+      rafIdRef.current = requestAnimationFrame(() => {
+        const currentHeight = latestCoordsRef.current.height;
+        const currentTop = latestCoordsRef.current.top;
 
-          setCustomCaretStyle(prev => ({
-            ...prev,
-            top: newTop,
-            left: latestCoordsRef.current.left,
-            height: newHeight,
-          }));
-          rafIdRef.current = null;
-        });
-      }
+        const newHeight = Math.max(2, currentHeight - 4);
+        const heightReduction = currentHeight - newHeight;
+        const newTop = currentTop - heightReduction / 4;
+
+        setCustomCaretStyle(prev => ({
+          ...prev,
+          top: newTop,
+          left: latestCoordsRef.current.left,
+          height: newHeight,
+        }));
+        rafIdRef.current = null;
+      });
     }
   }, [showCustomCaret, isInputFocused]);
 
-  // 创建节流版本的更新函数，每 20ms 更新一次
-  const throttledUpdateCustomCaretPosition = useCallback(
-    throttle(actualUpdateCustomCaretPosition, 20, { leading: true, trailing: true }),
+  // 创建节流版本的更新函数
+  const throttledUpdateCustomCaretPosition = useMemo(
+    () => throttle(actualUpdateCustomCaretPosition, 20, { leading: true, trailing: true }),
     [actualUpdateCustomCaretPosition]
   );
 
@@ -437,7 +667,7 @@ export default function ChatRoom() {
     };
   }, [showCustomCaret, isInputFocused]);
 
-  // 监听selection change来更新光标
+  // 修复useEffect依赖
   useEffect(() => {
     const handleSelectionChange = () => {
       if (document.activeElement === inputRef.current) {
@@ -500,74 +730,10 @@ export default function ChatRoom() {
     }
   };
 
-  // 处理点击用户名
-  const handleUserNameClick = useCallback((userName: string) => {
-    if (inputRef.current) {
-      const currentValue = inputRef.current.value;
-      const cursorPosition = inputRef.current.selectionStart || 0;
-      
-      // 在光标位置插入@用户名
-      const newValue = 
-        currentValue.slice(0, cursorPosition) +
-        `@${userName} ` +
-        currentValue.slice(cursorPosition);
-      
-      setMessageInput(newValue);
-      
-      // 设置光标位置
-      setTimeout(() => {
-        if (inputRef.current) {
-          const newPosition = cursorPosition + userName.length + 2; // @ + username + space
-          inputRef.current.focus();
-          inputRef.current.setSelectionRange(newPosition, newPosition);
-        }
-      }, 0);
-    }
-  }, []);
-
-  // 解析消息中的@提及
-  const parseAtMentions = useCallback((content: string) => {
-    const atPattern = /@(\S+)/g;
-    let lastIndex = 0;
-    const parts = [];
-    let match;
-
-    while ((match = atPattern.exec(content)) !== null) {
-      // 添加@之前的文本
-      if (match.index > lastIndex) {
-        parts.push(content.slice(lastIndex, match.index));
-      }
-      
-      // 添加@提及
-      const mentionedUser = match[1];
-      parts.push(
-        <span 
-          key={`mention-${match.index}`}
-          className="at-mention"
-          onClick={() => handleUserNameClick(mentionedUser)}
-        >
-          @{mentionedUser}
-        </span>
-      );
-      
-      lastIndex = match.index + match[0].length;
-    }
-    
-    // 添加剩余文本
-    if (lastIndex < content.length) {
-      parts.push(content.slice(lastIndex));
-    }
-    
-    return parts;
-  }, [handleUserNameClick]);
-
-  // 修改消息发送逻辑
   const handleSubmitMessage = (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
     if (messageInput.trim()) {
-      // 检查消息中的@提及
-      const atMentions = messageInput.match(/@(\S+)/g)?.map(mention => mention.slice(1)) || [];
-      
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       if (editingMessageId) {
         // 发送编辑消息
         sendMessage({
@@ -575,16 +741,26 @@ export default function ChatRoom() {
           messageId: editingMessageId,
           content: messageInput.trim(),
           originalContent: editingContent,
-          mentions: atMentions
         });
         setEditingMessageId(null);
         setEditingContent('');
       } else {
-        // 发送新消息
+        // 发送新消息，添加临时消息到列表
+        const tempMessage: ExtendedReceiveMessage = {
+          id: tempId,
+          type: 'message',
+          content: messageInput.trim(),
+          userId: userId,
+          timestamp: Date.now(),
+          roomId: roomId as string,
+          isNew: true
+        };
+        setAllMessages(prev => [...prev, tempMessage]);
+        // 发送消息到服务器，包含临时ID
         sendMessage({
           type: 'message',
           content: messageInput.trim(),
-          mentions: atMentions
+          tempId: tempId
         });
       }
       setMessageInput('');
@@ -716,7 +892,56 @@ export default function ChatRoom() {
         </a>
       );
     }
-    return <span className="message-text">{parseAtMentions(msg.content)}</span>;
+    
+    // 处理@消息
+    if (msg.content.includes('@')) {
+      // 使用更精确的正则表达式匹配@用户名
+      const parts = msg.content.split(/(@\S+)/).filter(Boolean);
+      return (
+        <span className="message-text">
+          {parts.map((part, index) => {
+            if (part.startsWith('@')) {
+              // 移除可能的标点符号
+              const username = part.slice(1).replace(/[.,!?，。！？、]$/, '');
+              const isSelf = username === userId;
+              return (
+                <span
+                  key={index}
+                  className={`at-mention ${isSelf ? 'self' : ''}`}
+                  onClick={() => {
+                    if (inputRef.current) {
+                      const currentValue = inputRef.current.value;
+                      const atText = `@${username} `;
+                      if (!currentValue.includes(atText)) {
+                        setMessageInput(currentValue + atText);
+                        inputRef.current.focus();
+                      }
+                    }
+                  }}
+                >
+                  {part}
+                </span>
+              );
+            }
+            return <span key={index}>{part}</span>;
+          })}
+        </span>
+      );
+    }
+    
+    return <span className="message-text">{msg.content}</span>;
+  };
+
+  // 添加点击用户名@的处理函数
+  const handleUserNameClick = (username: string) => {
+    if (inputRef.current) {
+      const currentValue = inputRef.current.value;
+      const atText = `@${username} `;
+      if (!currentValue.includes(atText)) {
+        setMessageInput(currentValue + atText);
+        inputRef.current.focus();
+      }
+    }
   };
 
   // 处理右键点击
@@ -819,10 +1044,8 @@ export default function ChatRoom() {
 
   const renderMessage = (msg: ExtendedReceiveMessage) => {
     const isCurrentUser = msg.userId === userId;
+    // 使用更可靠的方式生成 messageKey
     const messageKey = msg.id || `${msg.type}-${msg.timestamp}-${Math.random().toString(36).slice(2)}-${msg.userId}`;
-    
-    // 检查消息是否提及了当前用户
-    const isMentioned = msg.mentions?.includes(userId);
 
     if (!isJoined && (msg.type === 'join' || msg.type === 'leave')) {
       return null;
@@ -842,7 +1065,7 @@ export default function ChatRoom() {
       return (
         <div 
           key={messageKey} 
-          className={`message ${isCurrentUser ? 'self-msg' : 'user-msg'} ${isMentioned ? 'mentioned' : ''}`}
+          className={`message ${isCurrentUser ? 'self-msg' : 'user-msg'}`} 
           data-is-new={msg.isNew}
           data-message-id={msg.id}
           data-editing={editingMessageId === msg.id}
@@ -853,13 +1076,20 @@ export default function ChatRoom() {
             <span className="timestamp">[{new Date(msg.timestamp).toLocaleTimeString()}]</span>
             {!isCurrentUser && (
               <span 
-                className="user-nick"
+                className="user-nick clickable" 
                 onClick={() => handleUserNameClick(msg.userId)}
               >
                 [{msg.userId}]
               </span>
             )}
-            {isCurrentUser && <span className="user-nick self-nick">[{msg.userId}]</span>}
+            {isCurrentUser && (
+              <span 
+                className="user-nick self-nick clickable"
+                onClick={() => handleUserNameClick(msg.userId)}
+              >
+                [{msg.userId}]
+              </span>
+            )}
             &nbsp;
             {renderMessageContent(msg, isCurrentUser)}
             {isCurrentUser && (
@@ -880,9 +1110,9 @@ export default function ChatRoom() {
                 </button>
               </div>
             )}
-            {msg.type === 'edit' && (
+            {msg.type === 'edit' || msg.isEdited ? (
               <span className="edit-indicator">(已编辑)</span>
-            )}
+            ) : null}
           </div>
         </div>
       );
@@ -928,6 +1158,14 @@ export default function ChatRoom() {
       return () => window.removeEventListener('resize', updateCaretPosition);
     }
   }, [nickInput, showCustomCaret, isJoined]);
+
+  // 在组件加载时立即请求通知权限
+  useEffect(() => {
+    if (isJoined) {
+      console.log('组件加载，检查通知权限');
+      requestNotificationPermission();
+    }
+  }, [isJoined]);
 
   if (!isInitialized) {
     return (
@@ -998,7 +1236,6 @@ export default function ChatRoom() {
     <>
       <style jsx global>{systemMessageStyle}</style>
       <style jsx global>{imageContentStyle}</style>
-      <style jsx global>{atMessageStyle}</style>
       <div className="crt-overlay"></div>
       <section id="chat-area" className="terminal">
         <div className="terminal-content">

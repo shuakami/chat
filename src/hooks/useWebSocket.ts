@@ -8,7 +8,7 @@ let reconnectTimeout: NodeJS.Timeout | null = null;
 interface UseWebSocketProps {
   roomId: string;
   userId: string;
-  onMessagesReceived: (newMessages: ReceiveMessage[]) => void;
+  onMessagesReceived: (newMessages: ReceiveMessage[], isHistory: boolean) => void;
 }
 
 export const useWebSocket = ({ roomId, userId, onMessagesReceived }: UseWebSocketProps) => {
@@ -46,9 +46,9 @@ export const useWebSocket = ({ roomId, userId, onMessagesReceived }: UseWebSocke
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === 'history' && Array.isArray(data.messages)) {
-        onMessagesReceived(data.messages);
+        onMessagesReceived(data.messages, true);
       } else {
-        onMessagesReceived([data]);
+        onMessagesReceived([data], false);
       }
     };
 
