@@ -791,9 +791,88 @@ export default function ChatRoom() {
     }
   };
 
+  // 添加邀请命令处理函数
+  const handleInviteCommand = async (email: string) => {
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      const errorMsg = '邮箱格式不正确，请使用正确的邮箱地址';
+      setAllMessages(prev => [...prev, {
+        id: `system-${Date.now()}`,
+        type: 'system',
+        content: errorMsg,
+        userId: 'system',
+        timestamp: Date.now(),
+        roomId: roomId as string,
+        isNew: true
+      }]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inviterName: userId,
+          recipientEmail: email,
+          roomId: roomId
+        }),
+      });
+
+      const data = await response.json();
+      
+      let message;
+      if (data.success) {
+        message = `已成功发送邀请邮件到 ${email}`;
+      } else {
+        message = `发送邀请邮件失败: ${data.error || '未知错误'}`;
+      }
+
+      // 添加系统消息显示结果
+      setAllMessages(prev => [...prev, {
+        id: `system-${Date.now()}`,
+        type: 'system',
+        content: message,
+        userId: 'system',
+        timestamp: Date.now(),
+        roomId: roomId as string,
+        isNew: true
+      }]);
+
+    } catch (error) {
+      console.error('发送邀请邮件失败:', error);
+      // 添加错误消息
+      setAllMessages(prev => [...prev, {
+        id: `system-${Date.now()}`,
+        type: 'system',
+        content: '发送邀请邮件失败，请稍后重试',
+        userId: 'system',
+        timestamp: Date.now(),
+        roomId: roomId as string,
+        isNew: true
+      }]);
+    }
+  };
+
+  // 修改 handleSubmitMessage 函数
   const handleSubmitMessage = (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
     if (messageInput.trim()) {
+      // 检查是否是邀请命令
+      const inviteMatch = messageInput.trim().match(/^\/i\s+([^\s@]+@[^\s@]+\.[^\s@]+)$/);
+      if (inviteMatch) {
+        const email = inviteMatch[1];
+        handleInviteCommand(email);
+        setMessageInput('');
+        if (inputRef.current) {
+          inputRef.current.style.height = 'auto';
+        }
+        return;
+      }
+
       // 播放发送消息音效
       sendSound?.play().catch(err => console.log('播放发送音效失败:', err));
       
@@ -1393,7 +1472,7 @@ export default function ChatRoom() {
               ref={inputRef}
               className="input-field"
               rows={1} 
-              placeholder={editingMessageId ? "编辑消息..." : "输入消息… (Shift+Enter 换行, Enter 发送)"}
+              placeholder={editingMessageId ? "编辑消息..." : "输入消息… (Shift+Enter 换行, Enter 发送, /i 邮箱 邀请)"}
               value={messageInput}
               onChange={(e) => {
                 setMessageInput(e.target.value);
