@@ -325,11 +325,6 @@ body {
   transition: all 0.2s ease;
 }
 
-.terminal-button:hover:not(:disabled) {
-  border-color: var(--terminal-highlight, #0f0);
-  color: var(--terminal-highlight, #0f0);
-}
-
 .terminal-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
