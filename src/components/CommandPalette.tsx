@@ -58,20 +58,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const prevActiveCommandRef = useRef(activeCommand);
   const prevParameterIndexRef = useRef(parameterIndex);
 
-  console.log('[CommandPalette Render]', {
-    currentInputValue,
-    propsFilter: filter,
-    displayMode,
-    activeCommandName: activeCommand?.name,
-    parameterIndex,
-    selectedIndex,
-  });
 
   useEffect(() => {
     const parts = currentInputValue.startsWith('/') ? currentInputValue.substring(1).split(' ') : [];
     const commandName = parts[0] || '';
     const potentialCommand = commands.find(cmd => cmd.name === commandName);
-    console.log('[Effect: ModeLogic]', { currentInputValue, commandName, potentialCommandName: potentialCommand?.name, activeCmdName: activeCommand?.name, parameterIndex, displayMode });
 
     // 仅当还未进入参数模式，并且满足进入参数模式的条件时，才执行完整的参数模式初始化
     if (displayMode !== 'parameters' && 
@@ -80,21 +71,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         currentInputValue === potentialCommand.actionPrefix && 
         potentialCommand.parameters && 
         potentialCommand.parameters.length > 0) {
-      console.log('[Effect: ModeLogic] Initializing parameters mode', { currentInputValue, potentialCommandName: potentialCommand?.name });
       setActiveCommand(potentialCommand);
       setParameterIndex(0);
       setDisplayMode('parameters');
-      console.log('[Effect: ModeLogic] ACTION: Setting selectedIndex to 0 (initializing params)');
       setSelectedIndex(0); 
     } else if (potentialCommand && potentialCommand.parameters && potentialCommand.parameters.length > parameterIndex && parts.length > parameterIndex + 1) {
-      console.log('[Effect: ModeLogic] In parameter input mode', { currentInputValue, potentialCommandName: potentialCommand?.name });
       // 当正在输入参数时，确保 activeCommand 和 displayMode 正确，但不重置 selectedIndex
       if (activeCommand !== potentialCommand) setActiveCommand(potentialCommand);
       if (displayMode !== 'parameters') setDisplayMode('parameters');
     } else if (currentInputValue.startsWith('/')) {
-      console.log('[Effect: ModeLogic] Reverting to mainCommands mode or invalid command', { currentInputValue });
       if (!potentialCommand && currentInputValue.includes(' ') && commandName !=='') {
-        console.log('[Effect: ModeLogic] Closing due to invalid command with space'); 
         onClose(); 
         return;
       }
@@ -102,7 +88,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       setParameterIndex(0);
       setDisplayMode('mainCommands');
     } else {
-      console.log('[Effect: ModeLogic] Closing due to input not starting with /');
       onClose(); 
     }
   }, [currentInputValue, commands, parameterIndex, onClose, activeCommand, displayMode]); // 确保所有被读取和设置的状态都在依赖项中
@@ -125,7 +110,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   };
   const paramFilter = getCurrentParameterInput();
 
-  console.log('[Derived State]', { mainCommandFilter, paramFilter, filteredMainCmdLength: filteredMainCommands.length, filteredParamOptLength: parameterOptions.filter(opt => (opt.displayValue || opt.value).toLowerCase().includes(paramFilter.toLowerCase())).length });
 
   const filteredParameterOptions = displayMode === 'parameters' && currentParameterDefinition && !currentParameterDefinition.isFreeText
     ? parameterOptions.filter(opt => 
@@ -134,23 +118,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     : [];
 
   useEffect(() => {
-    console.log('[Effect: PreciseReset]', { propsFilter: filter, activeCmdName: activeCommand?.name, parameterIndex, displayMode, prevFilter: prevFilterRef.current, prevActiveName: prevActiveCommandRef.current?.name, prevParamIdx: prevParameterIndexRef.current });
     let shouldReset = false;
     if (filter !== prevFilterRef.current && displayMode === 'mainCommands') {
-      console.log('[PreciseReset] Condition: filter changed in mainCommands mode');
       shouldReset = true;
     }
     if (activeCommand !== prevActiveCommandRef.current) {
-      console.log('[PreciseReset] Condition: activeCommand changed');
       shouldReset = true;
     }
     if (parameterIndex !== prevParameterIndexRef.current) {
-      console.log('[PreciseReset] Condition: parameterIndex changed');
       shouldReset = true;
     }
 
     if (shouldReset) {
-      console.log('[PreciseReset] ACTION: Resetting selectedIndex to 0');
       setSelectedIndex(0);
     }
 
@@ -184,30 +163,24 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       if (!displayItems.length && e.key !== 'Escape') return;
 
       if (e.key === 'Escape') {
-        console.log('[KeyDown: Escape]');
         e.preventDefault(); 
         e.stopPropagation(); 
         onClose();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         e.stopPropagation();
-        console.log('[KeyDown: ArrowDown]', { currentSelectedIndex: selectedIndex, displayItemsLength: displayItems.length });
         setSelectedIndex(prev => {
           const nextIndex = (prev + 1) % (displayItems.length || 1);
-          console.log('[KeyDown: ArrowDown] Setting selectedIndex from', prev, 'to', nextIndex);
           return nextIndex;
         });
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         e.stopPropagation();
-        console.log('[KeyDown: ArrowUp]', { currentSelectedIndex: selectedIndex, displayItemsLength: displayItems.length });
         setSelectedIndex(prev => {
           const nextIndex = (prev - 1 + (displayItems.length || 1)) % (displayItems.length || 1); 
-          console.log('[KeyDown: ArrowUp] Setting selectedIndex from', prev, 'to', nextIndex);
           return nextIndex;
         });
       } else if (e.key === 'Enter') {
-        console.log('[KeyDown: Enter]', { displayMode, selectedIndex });
         e.preventDefault();
         e.stopPropagation(); 
         const selectedItem = displayItems[selectedIndex];
