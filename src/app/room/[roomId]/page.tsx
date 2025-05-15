@@ -830,7 +830,7 @@ export default function ChatRoom() {
             }
           } else {
             addSystemMessage(`无效的主题参数: '${argString}'. 可用: eye, default, cyberpunk`);
-        }
+          }
           commandProcessed = true;
         } else if (commandName === 'notify') {
           if (!('Notification' in window) || !('PushManager' in window) || !('serviceWorker' in navigator)) {
