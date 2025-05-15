@@ -1,0 +1,83 @@
+.command-palette {
+  background-color: var(--emoji-picker-bg-color, #1e1e1e);
+  border: 1px solid var(--emoji-picker-border-color, #333);
+  box-shadow: var(--emoji-picker-shadow, 0 2px 10px rgba(0,0,0,0.3));
+  color: var(--emoji-picker-text-color, #fff);
+  border-radius: 4px;
+  z-index: 2000;
+  font-size: 13px;
+}
+
+.command-palette ul {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+}
+
+.command-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background-color 0.15s ease;
+}
+
+.command-item:not(:last-child) {
+  margin-bottom: 2px;
+}
+
+.command-item.selected {
+  background-color: var(--emoji-picker-hover-bg-color, rgba(255,255,255,0.1));
+}
+
+.command-item-name {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.command-item-name strong {
+  font-weight: 500;
+}
+
+.command-item-usage {
+  font-size: 0.9em;
+  color: var(--dim-color);
+}
+
+.eye-care-mode .command-item-usage {
+  color: var(--eye-care-dim-color);
+}
+
+.command-item-description {
+  font-size: 0.9em;
+  color: var(--system-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eye-care-mode .command-item-description {
+  color: var(--eye-care-system-color);
+}
+
+.command-item-empty {
+  padding: 8px 12px;
+  color: var(--dim-color, #888);
+  font-style: italic;
+  text-align: center;
+}
+
+.eye-care-mode .command-item-empty {
+  color: var(--eye-care-dim-color, #777);
+}
+
+.command-free-text-prompt {
+  padding: 8px 12px;
+  color: var(--system-color, #aaa);
+  font-size: 0.95em;
+}
+
+.eye-care-mode .command-free-text-prompt {
+  color: var(--eye-care-system-color, #555);
+} 

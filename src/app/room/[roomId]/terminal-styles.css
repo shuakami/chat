@@ -25,8 +25,134 @@
   --at-self-text-color: #00ffff;
   --at-self-bg-color: rgba(0, 255, 255, 0.08);
   --at-self-hover-bg-color: rgba(0, 255, 255, 0.12);
-  --edit-highlight-color: rgba(0, 255, 0, 0.15);
+  --at-self-glow: 0 0 2px rgba(0, 255, 255, 0.2); /* Added for self @mention glow */
+  --edit-highlight-color: rgba(51, 255, 0, 0.08);
   --edit-text-color: #888888;
+  --editing-text-color: #00dddd; /* 一个稍微柔和的青色作为编辑状态的统一文本色 */
+  --editing-text-shadow-color: rgba(0, 221, 221, 0.5); /* 编辑状态文本阴影颜色 */
+
+  /* 滚动条颜色变量 */
+  --scrollbar-track-bg: rgba(0,255,0,.05);
+  --scrollbar-thumb-bg: rgba(0,255,0,.2);
+  --scrollbar-thumb-hover-bg: rgba(0,255,0,.3);
+
+  /* CRT Overlay 颜色变量 */
+  --crt-overlay-color: rgba(0, 0, 0, 0.1);
+
+  /* 终端按钮特定变量 */
+  --terminal-border: #333;
+  --terminal-text: #fff;
+  --terminal-highlight: #0f0;
+  --terminal-background: #1e1e1e; /* 用于 active 状态的背景 和 表情选择器默认背景 */
+
+  /* 表情选择器特定变量 */
+  --emoji-picker-bg-color: var(--terminal-background); /* 默认继承terminal-background */
+  --emoji-picker-border-color: var(--terminal-border);
+  --emoji-picker-text-color: var(--terminal-text);
+  --emoji-picker-hover-bg-color: rgba(255, 255, 255, 0.1);
+  --emoji-picker-hover-border-color: var(--terminal-highlight);
+  --emoji-picker-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); /* 默认阴影 */
+
+  /* 护眼模式颜色变量定义 */
+  --eye-care-bg-color: #FBF9F3; /* 非常柔和的米白色 (类纸张) */
+  --eye-care-text-color: #4A4A4A; /* 深灰色文本 (高对比度，不刺眼) */
+  --eye-care-prompt-color: #6A737D; /* 柔和的灰蓝色 (类似GitHub代码注释) */
+  --eye-care-input-color: #333333; /* 较深的灰色用于输入 */
+  --eye-care-dim-color: #A0A0A0; /* 中灰色 (比之前略浅，更柔和) */
+  --eye-care-system-color: #888888; /* 中灰色 (保持) */
+  --eye-care-other-msg-color: #555555; /* 略深的灰色 */
+  --eye-care-self-msg-color: #007A70; /* 柔和的青绿色 (类MD3 Primary) */
+  --eye-care-error-color: #D32F2F; /* 柔和的红色 (类MD3 Error) */
+  --eye-care-success-color: #388E3C; /* 柔和的绿色 (类MD3 Success) */
+  --eye-care-glow: none; /* 护眼模式通常不需要辉光 */
+  --eye-care-user-nick-color: #0277BD; /* 柔和的蓝色 (类MD3 Secondary) */
+  --eye-care-user-nick-hover-color: #039BE5; /* 略亮的柔和蓝 */
+  --eye-care-border-color: #E0E0E0; /* 浅灰色边框 (更柔和) */
+  --eye-care-shadow-color: rgba(180, 180, 180, 0.3); /* 护眼模式下的阴影基色 */
+  
+  --eye-care-at-text-color: #388E3C; 
+  --eye-care-at-bg-color: rgba(56, 142, 60, 0.07); /* 更淡的背景 */
+  --eye-care-at-hover-bg-color: rgba(56, 142, 60, 0.1);
+  --eye-care-at-self-text-color: #007A70;
+  --eye-care-at-self-bg-color: rgba(0, 122, 112, 0.07); /* 更淡的背景 */
+  --eye-care-at-self-hover-bg-color: rgba(0, 122, 112, 0.1);
+  --eye-care-at-self-glow: none;
+  --eye-care-edit-highlight-color: rgba(56, 142, 60, 0.07); /* 编辑高亮与@提及背景统一 */
+  --eye-care-edit-text-color: #888888; /* 与系统消息颜色一致 */
+  --eye-care-editing-text-color: #01579B; /* 柔和的深蓝色 */
+  --eye-care-editing-text-shadow-color: rgba(1, 87, 155, 0.25); /* 更柔和的阴影 */
+
+  --eye-care-scrollbar-track-bg: #F0F0F0; /* 更浅的轨道背景 */
+  --eye-care-scrollbar-thumb-bg: #C0C0C0; /* 更浅的滑块 */
+  --eye-care-scrollbar-thumb-hover-bg: #A8A8A8; /* 滑块悬停 */
+
+  --eye-care-crt-overlay-color: rgba(150, 150, 150, 0.03); /* 非常非常浅的灰色扫描线 */
+
+  /* 护眼模式下的终端按钮颜色 */
+  --eye-care-terminal-border-color: var(--eye-care-border-color);
+  --eye-care-terminal-text-color: var(--eye-care-prompt-color);
+  --eye-care-terminal-highlight-color: var(--eye-care-user-nick-color); /* 使用柔和的蓝色作为高亮 */
+  --eye-care-terminal-active-bg-color: var(--eye-care-user-nick-color);
+  --eye-care-terminal-active-text-color: var(--eye-care-bg-color); /* 激活时文字用页面背景色 */
+
+  /* 护眼模式下的表情选择器颜色 */
+  --eye-care-emoji-picker-bg-color: var(--eye-care-bg-color); /* 与页面背景统一的米白色 */
+  --eye-care-emoji-picker-border-color: var(--eye-care-border-color);
+  --eye-care-emoji-picker-text-color: var(--eye-care-text-color); /* 深灰色文字 */
+  --eye-care-emoji-picker-hover-bg-color: rgba(0, 0, 0, 0.04); /* 在米白色上更柔和的悬浮背景 */
+  --eye-care-emoji-picker-hover-border-color: var(--eye-care-prompt-color); /* 柔和的灰蓝色悬浮边框 */
+  --eye-care-emoji-picker-shadow: 0 4px 12px var(--eye-care-shadow-color); /* 护眼模式下的柔和阴影 */
+}
+
+/* 护眼模式激活时的变量覆盖 */
+:root.eye-care-mode {
+  --bg-color: var(--eye-care-bg-color);
+  --text-color: var(--eye-care-text-color);
+  --prompt-color: var(--eye-care-prompt-color);
+  --input-color: var(--eye-care-input-color);
+  --dim-color: var(--eye-care-dim-color);
+  --system-color: var(--eye-care-system-color);
+  --other-msg-color: var(--eye-care-other-msg-color);
+  --self-msg-color: var(--eye-care-self-msg-color);
+  --error-color: var(--eye-care-error-color);
+  --success-color: var(--eye-care-success-color);
+  --glow: var(--eye-care-glow);
+  --user-nick-color: var(--eye-care-user-nick-color);
+  --user-nick-hover-color: var(--eye-care-user-nick-hover-color);
+  --border-color: var(--eye-care-border-color);
+  
+  --at-text-color: var(--eye-care-at-text-color);
+  --at-bg-color: var(--eye-care-at-bg-color);
+  --at-hover-bg-color: var(--eye-care-at-hover-bg-color);
+  --at-self-text-color: var(--eye-care-at-self-text-color);
+  --at-self-bg-color: var(--eye-care-at-self-bg-color);
+  --at-self-hover-bg-color: var(--eye-care-at-self-hover-bg-color);
+  --at-self-glow: var(--eye-care-at-self-glow);
+  --edit-highlight-color: var(--eye-care-edit-highlight-color);
+  --edit-text-color: var(--eye-care-edit-text-color);
+  --editing-text-color: var(--eye-care-editing-text-color);
+  --editing-text-shadow-color: var(--eye-care-editing-text-shadow-color);
+
+  --scrollbar-track-bg: var(--eye-care-scrollbar-track-bg);
+  --scrollbar-thumb-bg: var(--eye-care-scrollbar-thumb-bg);
+  --scrollbar-thumb-hover-bg: var(--eye-care-scrollbar-thumb-hover-bg);
+
+  --crt-overlay-color: var(--eye-care-crt-overlay-color);
+
+  /* 覆盖终端按钮相关变量 */
+  --terminal-border: var(--eye-care-terminal-border-color);
+  --terminal-text: var(--eye-care-terminal-text-color);
+  --terminal-highlight: var(--eye-care-terminal-highlight-color);
+  --terminal-background: var(--eye-care-terminal-active-bg-color); /* active 状态背景 */
+  /* 注意：对于 .terminal-button.active 的 color，需要直接在 .eye-care-mode .terminal-button.active 中指定 */
+
+  /* 覆盖表情选择器相关变量 */
+  --emoji-picker-bg-color: var(--eye-care-emoji-picker-bg-color);
+  --emoji-picker-border-color: var(--eye-care-emoji-picker-border-color);
+  --emoji-picker-text-color: var(--eye-care-emoji-picker-text-color);
+  --emoji-picker-hover-bg-color: var(--eye-care-emoji-picker-hover-bg-color);
+  --emoji-picker-hover-border-color: var(--eye-care-emoji-picker-hover-border-color);
+  --emoji-picker-shadow: var(--eye-care-emoji-picker-shadow);
 }
 
 /* 全局基础 */
@@ -103,15 +229,15 @@ body {
 }
 
 #messages::-webkit-scrollbar-track {
-  background: rgba(0,255,0,.05);
+  background: var(--scrollbar-track-bg);
 }
 
 #messages::-webkit-scrollbar-thumb {
-  background: rgba(0,255,0,.2);
+  background: var(--scrollbar-thumb-bg);
 }
 
 #messages::-webkit-scrollbar-thumb:hover {
-  background: rgba(0,255,0,.3);
+  background: var(--scrollbar-thumb-hover-bg);
 }
 
 /* 输入区域样式调整 */
@@ -486,8 +612,8 @@ html, body {
   inset: 0;
   pointer-events: none;
   background: linear-gradient(
-    rgba(0, 0, 0, 0) 50%,
-    rgba(0, 0, 0, 0.1) 50%
+    rgba(0, 0, 0, 0) 50%, /* 透明部分保持不变 */
+    var(--crt-overlay-color) 50%
   );
   background-size: 100% 4px;   /* 每 4 px 一条暗线 */
 }
@@ -542,6 +668,28 @@ html, body {
 
 /* 导入表情选择器样式 */
 @import url('../../../styles/terminal-emoji.css');
+
+/* 表情选择器样式覆写 */
+.terminal-emoji-picker {
+  background-color: var(--emoji-picker-bg-color) !important; /* 使用 !important 确保覆盖 */
+  border: 1px solid var(--emoji-picker-border-color) !important;
+  box-shadow: var(--emoji-picker-shadow) !important; /* 应用阴影 */
+}
+
+.terminal-emoji-picker .emoji-search input {
+  background-color: transparent !important;
+  color: var(--emoji-picker-text-color) !important;
+  border-bottom: 1px solid var(--emoji-picker-border-color) !important;
+}
+
+.terminal-emoji-picker .emoji-item {
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.terminal-emoji-picker .emoji-item:hover {
+  background-color: var(--emoji-picker-hover-bg-color) !important;
+  border: 1px solid var(--emoji-picker-hover-border-color) !important;
+}
 
 /* 表情选择器样式 */
 .emoji-panel {
@@ -720,8 +868,8 @@ html, body {
   inset: 0;
   pointer-events: none;
   background: linear-gradient(
-    rgba(0, 0, 0, 0) 50%,
-    rgba(0, 0, 0, 0.1) 50%
+    rgba(0, 0, 0, 0) 50%, /* 透明部分保持不变 */
+    var(--crt-overlay-color) 50%
   );
   background-size: 100% 4px;   /* 每 4 px 一条暗线 */
 }
@@ -994,7 +1142,7 @@ html, body {
 .at-mention.self {
   color: var(--at-self-text-color) !important;
   background-color: var(--at-self-bg-color) !important;
-  text-shadow: 0 0 2px rgba(0, 255, 255, 0.2) !important;
+  text-shadow: var(--at-self-glow) !important;
   border-color: rgba(0, 255, 255, 0.1) !important;
 }
 
@@ -1014,39 +1162,76 @@ html, body {
 }
 
 /* 编辑动画 */
-@keyframes messageEdit {
+@keyframes smoothEditTransition {
   0% {
-    background-color: var(--edit-highlight-color);
-    transform: scale(1.01);
+    color: currentColor; /* 从元素当前颜色开始 */
+    text-shadow: none;
   }
   50% {
-    background-color: var(--edit-highlight-color);
-    transform: scale(1.01);
+    color: #ffffff; /* 高亮峰值 */
+    text-shadow: 0 0 10px var(--editing-text-shadow-color);
   }
   100% {
-    background-color: transparent;
-    transform: scale(1);
+    color: var(--editing-text-color); /* 结束于统一的编辑态颜色 */
+    text-shadow: 0 0 3px var(--editing-text-shadow-color); /* 结束时带一点点柔和阴影 */
   }
 }
 
-.message[data-editing="true"] .message-content {
-  animation: messageEdit 1.5s ease-out forwards;
+/* 
+  当消息在编辑时，所有相关文本子元素都应用此动画。
+  动画结束后，它们会保持在动画的最后一帧状态（统一的编辑态颜色）。
+*/
+.message[data-editing="true"] .timestamp,
+.message[data-editing="true"] .user-nick,
+.message[data-editing="true"] .self-nick,
+.message[data-editing="true"] .message-text {
+  animation: smoothEditTransition 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  transition: none !important; 
 }
 
-/* 已编辑标记样式 */
-.edit-indicator {
-  font-size: 12px;
-  color: var(--edit-text-color);
-  margin-left: 8px;
-  opacity: 0.8;
-  font-style: italic;
-  display: inline-block;
-  vertical-align: middle;
-  transition: opacity 0.2s;
+/* 确保父级 .message 在编辑时没有自己的动画，避免冲突 */
+.message[data-editing="true"] {
+  /* 不需要特定动画，颜色由子元素通过动画控制 */
 }
 
-.message:hover .edit-indicator {
-  opacity: 1;
+.message[data-editing="true"][data-deleting="true"],
+.message[data-editing="true"][data-deleting="true"] * {
+  animation: none !important;
+}
+
+.message[data-editing="true"]:hover {
+  background: transparent;
+}
+
+/* 时间戳、用户昵称、消息文本的默认颜色保持不变（用于非编辑状态） */
+.timestamp { 
+  color: var(--dim-color);
+  margin-right: 8px;
+  font-size: 0.9em; 
+  display: block;
+  margin-bottom: 3px;
+}
+
+.user-nick {
+  color: var(--user-nick-color);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color .2s;
+}
+
+/* 确保 self-msg 的消息文本有正确的默认颜色 */
+.self-msg .message-text {
+  color: var(--self-msg-color);
+}
+
+/* 对于其他用户的消息文本，也可能需要一个默认颜色 */
+.user-msg .message-text {
+  color: var(--other-msg-color);
+}
+
+/* 为护眼模式下的 active 按钮单独设置文字颜色 */
+.eye-care-mode .terminal-button.active {
+  color: var(--eye-care-terminal-active-text-color);
 }
 
 

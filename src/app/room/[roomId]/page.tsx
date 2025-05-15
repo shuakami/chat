@@ -8,10 +8,14 @@ import { useFileUpload } from '@/hooks/useFileUpload';
 import { ReceiveMessage } from '@/types/chat';
 import Cookies from 'js-cookie';
 import { EmojiPicker } from '@/components/EmojiPicker';
+import { CommandPalette, Command} from '@/components/CommandPalette';
+import { MentionPalette } from '@/components/MentionPalette'; // 导入 MentionPalette
 import getCaretCoordinates from 'textarea-caret';
 import throttle from 'lodash.throttle';
 import './terminal-styles.css';
 import '@/styles/terminal-emoji.css';
+import '@/styles/CommandPalette.css';
+import '@/styles/MentionPalette.css'; // 导入 MentionPalette CSS
 
 // 在文件顶部添加样式
 const systemMessageStyle = `
@@ -294,17 +298,35 @@ const VideoPreview = ({ msg, onMediaClick }: { msg: ReceiveMessage; onMediaClick
   // 处理鼠标悬停
   const handleMouseEnter = useCallback(() => {
     if (videoRef.current) {
-      videoRef.current.currentTime = 0.2; // 从第0.2秒开始播放
-      videoRef.current.play()
-        .then(() => setIsPlaying(true))
-        .catch(err => console.error('视频播放失败:', err));
+      videoRef.current.currentTime = 1; // 从第1秒开始播放
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            // 只有在视频成功开始播放时才设置 isPlaying 为 true
+            if (videoRef.current && !videoRef.current.paused) {
+              setIsPlaying(true);
+            }
+          })
+          .catch(error => {
+            // 捕获并忽略因 pause() 中断 play() 导致的错误
+            if (error.name === 'AbortError') {
+              console.log('Video play() was interrupted by pause().');
+            } else {
+              console.error('视频播放失败:', error);
+            }
+          });
+      }
     }
   }, []);
 
   // 处理鼠标离开
   const handleMouseLeave = useCallback(() => {
     if (videoRef.current) {
-      videoRef.current.pause();
+      // 只有在视频确实在播放或准备播放时才调用 pause
+      if (!videoRef.current.paused) {
+        videoRef.current.pause();
+      }
       setIsPlaying(false);
     }
   }, []);
@@ -369,6 +391,78 @@ const VideoPreview = ({ msg, onMediaClick }: { msg: ReceiveMessage; onMediaClick
   );
 };
 
+// 新增：命令定义
+const availableCommands: Command[] = [
+  {
+    id: 'theme',
+    name: 'theme',
+    displayName: '切换主题',
+    description: '更改聊天界面的颜色主题。',
+    usage: 'eye | default',
+    actionPrefix: '/theme ',
+    parameters: [
+      {
+        name: 'mode',
+        displayName: '主题模式',
+        options: [
+          { value: 'eye', displayValue: 'eye (护眼模式)', description: '切换到护眼模式' },
+          { value: 'default', displayValue: 'default (默认主题)', description: '恢复到默认主题' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'nick',
+    name: 'nick',
+    displayName: '修改昵称',
+    description: '更改您在聊天中的显示名称。',
+    usage: '<新昵称>',
+    actionPrefix: '/nick ',
+    parameters: [
+      {
+        name: 'newName',
+        displayName: '新昵称',
+        isFreeText: true,
+        placeholder: '请输入您的新昵称',
+      },
+    ],
+  },
+  {
+    id: 'invite',
+    name: 'invite',
+    displayName: '邀请用户',
+    description: '通过邮件邀请他人加入当前聊天室。',
+    usage: '<邮箱地址>',
+    actionPrefix: '/invite ',
+    parameters: [
+      {
+        name: 'email',
+        displayName: '邮箱地址',
+        isFreeText: true,
+        placeholder: '请输入对方的邮箱地址',
+      },
+    ],
+  },
+  {
+    id: 'clear',
+    name: 'clear',
+    displayName: '清除消息',
+    description: '清除您自己发送的所有消息。',
+    usage: 'me',
+    actionPrefix: '/clear ',
+    parameters: [
+      {
+        name: 'target',
+        displayName: '清除目标',
+        options: [
+          { value: 'me', displayValue: 'me (我的消息)', description: '清除我发送的所有消息' },
+        ],
+      },
+    ],
+  },
+  // 可以根据需要添加更多命令
+];
+
 export default function ChatRoom() {
   const { roomId } = useParams();
   const [isInitialized, setIsInitialized] = useState(false);
@@ -398,6 +492,18 @@ export default function ChatRoom() {
     content: string;
   } | null>(null);
 
+  // 新增：护眼模式状态
+  const [isEyeCareMode, setIsEyeCareMode] = useState(false);
+
+  // 新增：命令面板相关状态
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [commandPaletteFilter, setCommandPaletteFilter] = useState('');
+
+  // 新增：提及用户相关状态
+  const [onlineUserNicks, setOnlineUserNicks] = useState<string[]>([]);
+  const [showMentionPalette, setShowMentionPalette] = useState(false); // MentionPalette显示状态
+  const [mentionPaletteFilter, setMentionPaletteFilter] = useState(''); // MentionPalette过滤器
+
   const [showPrompt] = useState(true);
   const [nickInput, setNickInput] = useState('');
   const [caretPosition, setCaretPosition] = useState({ left: 0, top: 0, height: 0 });
@@ -408,6 +514,25 @@ export default function ChatRoom() {
   // 添加通知相关状态
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
 
+  // 新增：useEffect 用于初始化和响应 isEyeCareMode 变化
+  useEffect(() => {
+    // 初始化时从 localStorage 读取主题设置
+    const savedTheme = localStorage.getItem('chat_theme');
+    if (savedTheme === 'eye-care') {
+      setIsEyeCareMode(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    // 当 isEyeCareMode 变化时，更新 body 的 class 和 localStorage
+    if (isEyeCareMode) {
+      document.documentElement.classList.add('eye-care-mode');
+      localStorage.setItem('chat_theme', 'eye-care');
+    } else {
+      document.documentElement.classList.remove('eye-care-mode');
+      localStorage.setItem('chat_theme', 'default');
+    }
+  }, [isEyeCareMode]);
 
   useEffect(() => {
     const savedUserId = Cookies.get(USER_ID_COOKIE);
@@ -549,6 +674,39 @@ export default function ChatRoom() {
           try {
             const systemAction = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content;
             
+            // 处理批量删除操作
+            if (systemAction.action === 'deleteAll' && systemAction.userId) {
+              console.log('处理批量删除消息:', systemAction);
+              
+              // 标记所有要删除的消息
+              messages.forEach(m => {
+                if (m.userId === systemAction.userId) {
+                  m.deleting = true;
+                }
+              });
+
+              // 延迟移除消息以显示动画
+              setTimeout(() => {
+                setAllMessages(prev => 
+                  prev.filter(m => m.userId !== systemAction.userId)
+                );
+              }, 300);
+
+              // 添加系统消息显示删除结果
+              const systemMsg: ExtendedReceiveMessage = {
+                id: `system-${Date.now()}`,
+                type: 'system',
+                content: `${systemAction.userId} 的 ${systemAction.count} 条消息已被删除`,
+                userId: 'system',
+                timestamp: Date.now(),
+                roomId: roomId as string,
+                isNew: true
+              };
+              messages.push(systemMsg);
+              hasNewMessage = true;
+              continue;
+            }
+            
             // 处理删除操作
             if (systemAction.action === 'delete' && systemAction.messageId) {
               console.log('处理删除消息:', systemAction);
@@ -622,16 +780,18 @@ export default function ChatRoom() {
         if (msg.type === 'onlineList' && msg.userId === 'system') {
           console.log('处理在线用户列表:', msg);
           try {
-            const onlineUsers = JSON.parse(msg.content);
-            console.log('解析后的在线用户:', onlineUsers);
-            const otherUsers = onlineUsers.filter((user: string) => user !== userId);
-            console.log('其他在线用户:', otherUsers);
+            const onlineUsersRaw = JSON.parse(msg.content);
+            console.log('解析后的在线用户 (raw):', onlineUsersRaw);
+            // 更新 onlineUserNicks 状态，排除当前用户
+            const otherUserNicks = onlineUsersRaw.filter((nick: string) => nick !== userId);
+            setOnlineUserNicks(otherUserNicks);
+            console.log('更新后的 onlineUserNicks 状态:', otherUserNicks);
             
             let content = '';
-            if (otherUsers.length === 0) {
+            if (otherUserNicks.length === 0) {
               content = '这个房间里面除了你没有其他人在线，不过你可以留言，他们看得到';
             } else {
-              content = `这个房间里面有 ${otherUsers.join('、')} ${otherUsers.length > 1 ? '（共' + otherUsers.length + '人）' : ''} 在线`;
+              content = `这个房间里面有 ${otherUserNicks.join('、')} ${otherUserNicks.length > 1 ? '（共' + otherUserNicks.length + '人）' : ''} 在线`;
             }
             
             // 确保消息 ID 的唯一性
@@ -813,7 +973,7 @@ export default function ChatRoom() {
 
     latestCoordsRef.current = {
       top: coordinates.top - scrollTop,
-      left: (coordinates.left - scrollLeft) + 3,
+      left: (coordinates.left - scrollLeft) + 2,
       height: coordinates.height,
     };
 
@@ -1016,96 +1176,108 @@ export default function ChatRoom() {
     const oldName = userId;
     // 更新 Cookie 和状态
     Cookies.set(USER_ID_COOKIE, newName.trim(), { expires: 30 });
-    setUserId(newName.trim());
 
-    // 发送系统消息
+    // 改为发送一条普通消息通知其他用户更名事件
+    const renameNotificationMessage = `${oldName} 已将名称更改为 ${newName.trim()} - 本地修改 请自行确认安全性`;
+    const tempIdRename = `temp-${Date.now()}-rename-notify`;
+    
+    // 先在本地显示这条通知
+    setAllMessages(prev => [...prev, {
+      id: tempIdRename,
+      type: 'message' as const, // 明确类型
+      content: renameNotificationMessage,
+      userId: oldName, // 使用旧名称发送此通知
+      timestamp: Date.now(),
+      roomId: roomId as string,
+      isNew: true
+    }]);
+    
     sendMessage({
-      type: 'system',
-      content: JSON.stringify({
-        action: 'rename',
-        oldName: oldName,
-        newName: newName.trim()
-      })
+      type: 'message',
+      content: renameNotificationMessage,
+      tempId: tempIdRename // 让服务器确认此消息
     });
 
-    // 添加本地系统消息
+    // 添加本地系统消息，告知当前用户操作成功并将刷新
     setAllMessages(prev => [...prev, {
-      id: `system-${Date.now()}`,
-      type: 'system',
-      content: `你已将名称从 ${oldName} 更改为 ${newName.trim()}`,
+      id: `system-${Date.now()}-rename-success`,
+      type: 'system' as const, // 明确类型
+      content: `名称已成功更改为 ${newName.trim()}。页面即将刷新...`, // 更新了提示信息
       userId: 'system',
       timestamp: Date.now(),
       roomId: roomId as string,
       isNew: true
     }]);
+
+    // 稍作延迟以确保消息渲染和用户看到提示，然后重载页面
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500); // 1.5秒延迟
   };
 
   // 修改 handleSubmitMessage 函数
   const handleSubmitMessage = (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
     if (messageInput.trim()) {
-      // 检查是否是更换名称命令
-      const nameMatch = messageInput.trim().match(/^\/n(?:ame)?\s+(.+)$/);
-      if (nameMatch) {
-        const newName = nameMatch[1].trim();
-        handleNameChange(newName);
-        setMessageInput('');
-        if (inputRef.current) {
-          inputRef.current.style.height = 'auto';
+      const trimmedInput = messageInput.trim();
+      let commandProcessed = false;
+
+      if (trimmedInput.startsWith('/')) {
+        const [commandNamePart, ...argsParts] = trimmedInput.substring(1).split(' ');
+        const commandName = commandNamePart.toLowerCase();
+        const argString = argsParts.join(' ').trim();
+
+        if (commandName === 'clear' && argString === 'me') {
+          if (window.confirm('确定要删除你发送的所有消息吗？此操作不可撤销。')) {
+            sendMessage({ type: 'deleteAll' });
+          }
+          commandProcessed = true;
+        } else if (commandName === 'nick' && argString) {
+          handleNameChange(argString);
+          commandProcessed = true;
+        } else if (commandName === 'invite' && argString) {
+          handleInviteCommand(argString);
+          commandProcessed = true;
+        } else if (commandName === 'theme') {
+          if (argString === 'eye' || argString === 'default') {
+            const newIsEyeCare = argString === 'eye';
+            if (isEyeCareMode !== newIsEyeCare) {
+                setIsEyeCareMode(newIsEyeCare);
+                setAllMessages(prev => [...prev, { id: `system-${Date.now()}`, type: 'system', content: newIsEyeCare ? '护眼模式已启用。' : '默认主题已恢复。', userId: 'system', timestamp: Date.now(), roomId: roomId as string, isNew: true }]);
+            } else {
+                setAllMessages(prev => [...prev, { id: `system-${Date.now()}`, type: 'system', content: newIsEyeCare ? '护眼模式已是启用状态。' : '默认主题已是当前主题。', userId: 'system', timestamp: Date.now(), roomId: roomId as string, isNew: true }]);
+            }
+          } else {
+            setAllMessages(prev => [...prev, { id: `system-${Date.now()}`, type: 'system', content: `无效的主题参数: '${argString}'. 可用: eye, default`, userId: 'system', timestamp: Date.now(), roomId: roomId as string, isNew: true }]);
+          }
+          commandProcessed = true;
+        } else {
+           setAllMessages(prev => [...prev, { id: `system-${Date.now()}`, type: 'system', content: `未知命令或参数不正确: '${trimmedInput}'`, userId: 'system', timestamp: Date.now(), roomId: roomId as string, isNew: true }]);
+           commandProcessed = true; 
         }
+      }
+
+      if (commandProcessed) {
+        setMessageInput('');
+        if (inputRef.current) inputRef.current.style.height = 'auto';
+        setShowCommandPalette(false);
         return;
       }
 
-      // 检查是否是邀请命令
-      const inviteMatch = messageInput.trim().match(/^\/i\s+([^\s@]+@[^\s@]+\.[^\s@]+)$/);
-      if (inviteMatch) {
-        const email = inviteMatch[1];
-        handleInviteCommand(email);
-        setMessageInput('');
-        if (inputRef.current) {
-          inputRef.current.style.height = 'auto';
-        }
-        return;
-      }
-
-      // 播放发送消息音效
+      // Normal message sending logic
       sendSound?.play().catch(err => console.log('播放发送音效失败:', err));
-      
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       if (editingMessageId) {
-        // 发送编辑消息
-        sendMessage({
-          type: 'edit',
-          messageId: editingMessageId,
-          content: messageInput.trim(),
-          originalContent: editingContent,
-        });
-        setEditingMessageId(null);
-        setEditingContent('');
+        sendMessage({ type: 'edit', messageId: editingMessageId, content: trimmedInput, originalContent: editingContent });
+        setEditingMessageId(null); setEditingContent('');
       } else {
-        // 发送新消息，添加临时消息到列表
-        const tempMessage: ExtendedReceiveMessage = {
-          id: tempId,
-          type: 'message',
-          content: messageInput.trim(),
-          userId: userId,
-          timestamp: Date.now(),
-          roomId: roomId as string,
-          isNew: true
-        };
+        const tempMessage: ExtendedReceiveMessage = { id: tempId, type: 'message', content: trimmedInput, userId: userId, timestamp: Date.now(), roomId: roomId as string, isNew: true };
         setAllMessages(prev => [...prev, tempMessage]);
-        // 发送消息到服务器，包含临时ID
-        sendMessage({
-          type: 'message',
-          content: messageInput.trim(),
-          tempId: tempId
-        });
+        sendMessage({ type: 'message', content: trimmedInput, tempId: tempId });
       }
       setMessageInput('');
-      if (inputRef.current) {
-        inputRef.current.style.height = 'auto';
-      }
-      setShowEmojiPicker(false);
+      if (inputRef.current) inputRef.current.style.height = 'auto';
+      setShowCommandPalette(false);
     }
   };
 
@@ -1579,6 +1751,91 @@ export default function ChatRoom() {
     }
   }, [isJoined, handleClipboardPaste]);
 
+  const handleMessageInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setMessageInput(value);
+
+    // 检查是否触发 @ 提及
+    const lastAtMatch = value.match(/@(\w*)$/);
+    if (lastAtMatch && !value.endsWith('@ ')) { // 如果以 @word 结尾且@后没有立即空格
+      setShowMentionPalette(true);
+      setMentionPaletteFilter(lastAtMatch[1]); // lastAtMatch[1] 是 @ 后面的词
+      setShowCommandPalette(false); // 关闭命令面板
+    } else if (value.startsWith('/') && !value.includes(' ')) {
+      // 如果以 / 开头且没有空格 (触发主命令)
+      setShowCommandPalette(true);
+      const mainCommandPart = value.substring(1);
+      setCommandPaletteFilter(mainCommandPart);
+      setShowMentionPalette(false); // 关闭提及面板
+    } else if (value.startsWith('/') && value.includes(' ')) {
+       if (!showMentionPalette) { // 只有在没有激活mention palette时才考虑command palette
+        const firstSpaceIndex = value.indexOf(' ');
+        const mainCommandPart = value.substring(1, firstSpaceIndex !== -1 ? firstSpaceIndex : undefined);
+        setCommandPaletteFilter(mainCommandPart); // 更新filter给CommandPalette的参数逻辑用
+       }
+    } else {
+      setShowCommandPalette(false);
+      setCommandPaletteFilter('');
+      setShowMentionPalette(false);
+      setMentionPaletteFilter('');
+    }
+  };
+
+  const handleCommandSelect = (textToInsert: string, isParameterSelection?: boolean, commandJustCompleted?: boolean) => {
+    if (isParameterSelection) {
+      setMessageInput(prev => {
+        const parts = prev.split(' ');
+        if (parts.length > 1) {
+          parts[parts.length -1] = textToInsert; // 使用选中的参数替换最后一个部分（部分输入的参数）
+          return parts.join(' ');
+        }    
+        return prev + textToInsert; // 备用逻辑：如果是命令后的第一个参数，则直接追加
+      });
+    } else {
+      setMessageInput(textToInsert); // 主命令选择时，textToInsert 包含前缀如 "/theme "
+    }
+
+    if (commandJustCompleted) {
+      setShowCommandPalette(false);
+    } else if (!isParameterSelection) {
+      // 如果选择了主命令且该命令有参数，CommandPalette 自身会处理转换到参数模式并保持打开
+    }
+    
+    inputRef.current?.focus();
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.style.height = 'auto';
+        inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
+        throttledUpdateCustomCaretPosition();
+        inputRef.current.selectionStart = inputRef.current.selectionEnd = inputRef.current.value.length;
+      }
+    }, 0);
+  };
+
+  // 新增：处理提及选择
+  const handleMentionSelect = (mention: string) => {
+    setMessageInput(prev => {
+      // 替换从最后一个@开始的词
+      const lastAt = prev.lastIndexOf('@');
+      if (lastAt !== -1) {
+        return prev.substring(0, lastAt) + mention; // mention 参数已经是 "@user " 格式
+      }
+      return prev + mention; // 备用逻辑，正常情况下不应触发
+    });
+    setShowMentionPalette(false);
+    setMentionPaletteFilter('');
+    inputRef.current?.focus();
+    // 确保插入后光标在末尾
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.selectionStart = inputRef.current.selectionEnd = inputRef.current.value.length;
+        inputRef.current.style.height = 'auto';
+        inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
+        throttledUpdateCustomCaretPosition();
+      }
+    }, 0);
+  };
+
   if (!isInitialized) {
     return (
         <>
@@ -1664,6 +1921,25 @@ export default function ChatRoom() {
         </div>
 
         <div className="input-container">
+          {showCommandPalette && (
+            <CommandPalette
+              commands={availableCommands}
+              filter={commandPaletteFilter}
+              currentInputValue={messageInput}
+              onSelect={handleCommandSelect}
+              onClose={() => setShowCommandPalette(false)}
+              inputElement={inputRef.current}
+            />
+          )}
+          {showMentionPalette && onlineUserNicks.length > 0 && (
+            <MentionPalette
+              users={onlineUserNicks}
+              filter={mentionPaletteFilter}
+              onSelect={handleMentionSelect}
+              onClose={() => setShowMentionPalette(false)}
+              inputElement={inputRef.current}
+            />
+          )}
           {uploadError && (
             <div className="message error-msg" style={{ paddingLeft: 0, marginBottom: '5px' }}>上传失败: {uploadError}</div>
           )}
@@ -1674,17 +1950,24 @@ export default function ChatRoom() {
               ref={inputRef}
               className="input-field"
               rows={1} 
-              placeholder={editingMessageId ? "编辑消息..." : "输入消息… (Shift+Enter 换行, Enter 发送, /i 邮箱 邀请, /n 新名称)"}
+              placeholder="输入消息… (输入 / 查看命令)"
               value={messageInput}
-              onChange={(e) => {
-                setMessageInput(e.target.value);
-              }}
+              onChange={handleMessageInputChange}
               onKeyDown={(e) => {
+                if (showCommandPalette || showMentionPalette) { // 如果任一面板显示
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                     e.preventDefault(); 
+                  }
+                  // 允许 Enter 键由面板处理，面板处理后应停止事件冒泡
+                  // 方向键、Esc、Tab 已由面板处理并停止冒泡
+                  return; // 事件交由面板处理
+                }
+                
                 if (e.key === 'Escape' && editingMessageId) {
                   e.preventDefault();
                   handleCancelEdit();
-                } else {
-                  handleTextareaKeyDown(e);
+                } else if (e.key === 'Enter' && !e.shiftKey) {
+                  handleTextareaKeyDown(e); 
                 }
               }}
               onKeyUp={throttledUpdateCustomCaretPosition}

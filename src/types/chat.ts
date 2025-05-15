@@ -1,4 +1,4 @@
-export type MessageType = 'message' | 'system' | 'join' | 'leave' | 'error' | 'edit' | 'delete' | 'onlineList';
+export type MessageType = 'message' | 'system' | 'join' | 'leave' | 'error' | 'edit' | 'delete' | 'onlineList' | 'deleteAll';
 
 export interface FileMeta {
   fileName: string;
