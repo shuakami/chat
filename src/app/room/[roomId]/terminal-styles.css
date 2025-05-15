@@ -102,6 +102,63 @@
   --eye-care-emoji-picker-hover-bg-color: rgba(0, 0, 0, 0.04); /* 在米白色上更柔和的悬浮背景 */
   --eye-care-emoji-picker-hover-border-color: var(--eye-care-prompt-color); /* 柔和的灰蓝色悬浮边框 */
   --eye-care-emoji-picker-shadow: 0 4px 12px var(--eye-care-shadow-color); /* 护眼模式下的柔和阴影 */
+
+  /* Cyberpunk Theme Variables (Inspired by Cyberpunk 2077 Website) */
+  --cyberpunk-bg-color: #0A0A0A;
+  --cyberpunk-text-color: #E0E0E0;
+  --cyberpunk-prompt-color: #FCEE0A; /* 主黄 */
+  --cyberpunk-input-color: #F0F0F0;
+  --cyberpunk-dim-color: #444444;
+  --cyberpunk-system-color: #777777; 
+  --cyberpunk-other-msg-color: #D0D0D0; /* 略暗的白色 */
+  --cyberpunk-self-msg-color: var(--cyberpunk-prompt-color); /* 自己消息用主黄色 */
+  --cyberpunk-error-color: #FF3355; /* 霓虹红 */
+  --cyberpunk-success-color: #00F0FF; /* 青色 */
+  --cyberpunk-glow-yellow: 0 0 3px #FCEE0A, 0 0 7px rgba(252, 238, 10, 0.6);
+  --cyberpunk-glow-cyan: 0 0 3px #00F0FF, 0 0 7px rgba(0, 240, 255, 0.6);
+  --cyberpunk-user-nick-color: #00F0FF; /* 青色 */
+  --cyberpunk-user-nick-hover-color: #77FFFF; /* 更亮的青色 */
+  --cyberpunk-border-color: #333333; /* 暗边框 */
+  --cyberpunk-highlight-border-color: var(--cyberpunk-prompt-color); /* 黄色高亮边框 */
+  --cyberpunk-secondary-highlight-border-color: var(--cyberpunk-user-nick-color); /* 青色高亮边框 */
+
+  /* @消息 - Cyberpunk */
+  --cyberpunk-at-text-color: var(--cyberpunk-prompt-color);
+  --cyberpunk-at-bg-color: rgba(252, 238, 10, 0.1);
+  --cyberpunk-at-hover-bg-color: rgba(252, 238, 10, 0.15);
+  --cyberpunk-at-self-text-color: var(--cyberpunk-user-nick-color);
+  --cyberpunk-at-self-bg-color: rgba(0, 240, 255, 0.1);
+  --cyberpunk-at-self-hover-bg-color: rgba(0, 240, 255, 0.15);
+  --cyberpunk-edit-highlight-color: rgba(252, 238, 10, 0.1);
+  --cyberpunk-edit-text-color: var(--cyberpunk-system-color);
+  --cyberpunk-editing-text-color: var(--cyberpunk-user-nick-color); 
+  --cyberpunk-editing-text-shadow-color: var(--cyberpunk-glow-cyan);
+
+  /* 滚动条 - Cyberpunk */
+  --cyberpunk-scrollbar-track-bg: rgba(252, 238, 10, 0.08);
+  --cyberpunk-scrollbar-thumb-bg: rgba(252, 238, 10, 0.3);
+  --cyberpunk-scrollbar-thumb-hover-bg: rgba(252, 238, 10, 0.5);
+
+  /* CRT Overlay - Cyberpunk (官网风格，设为透明) */
+  --cyberpunk-crt-overlay-color: rgba(0, 0, 0, 0);
+
+  /* 终端按钮 - Cyberpunk */
+  /* 主要按钮: 黄底黑字 (参考官网 Buy Now) */
+  --cyberpunk-button-primary-bg-color: var(--cyberpunk-prompt-color); 
+  --cyberpunk-button-primary-text-color: #0A0A0A;
+  --cyberpunk-button-primary-border-color: var(--cyberpunk-prompt-color);
+  /* 次要/默认按钮: 透明底，青色文字/边框 */
+  --cyberpunk-button-secondary-bg-color: transparent;
+  --cyberpunk-button-secondary-text-color: var(--cyberpunk-user-nick-color);
+  --cyberpunk-button-secondary-border-color: var(--cyberpunk-user-nick-color);
+  /* 激活/悬停效果待具体定义，可能涉及辉光或颜色反转 */
+
+  /* 面板 (Emoji/Command/Mention) - Cyberpunk */
+  --cyberpunk-panel-bg-color: #101010; /* 比主背景略浅 */
+  --cyberpunk-panel-border-color: var(--cyberpunk-user-nick-color); /* 青色边框 */
+  --cyberpunk-panel-text-color: var(--cyberpunk-text-color);
+  --cyberpunk-panel-hover-bg-color: rgba(0, 240, 255, 0.15); /* 半透明青色 */
+  --cyberpunk-panel-shadow: 0 0 8px rgba(0, 240, 255, 0.3); /* 青色辉光代替阴影 */
 }
 
 /* 护眼模式激活时的变量覆盖 */
@@ -1232,6 +1289,177 @@ html, body {
 /* 为护眼模式下的 active 按钮单独设置文字颜色 */
 .eye-care-mode .terminal-button.active {
   color: var(--eye-care-terminal-active-text-color);
+}
+
+/* Cyberpunk Mode Styles */
+.cyberpunk-mode {
+  --bg-color: var(--cyberpunk-bg-color);
+  --text-color: var(--cyberpunk-text-color);
+  --prompt-color: var(--cyberpunk-prompt-color);
+  --input-color: var(--cyberpunk-input-color);
+  --dim-color: var(--cyberpunk-dim-color);
+  --system-color: var(--cyberpunk-system-color);
+  --other-msg-color: var(--cyberpunk-other-msg-color);
+  --self-msg-color: var(--cyberpunk-self-msg-color);
+  --error-color: var(--cyberpunk-error-color);
+  --success-color: var(--cyberpunk-success-color);
+  --glow: var(--cyberpunk-glow-yellow); /* 默认辉光用黄色 */
+  --user-nick-color: var(--cyberpunk-user-nick-color);
+  --user-nick-hover-color: var(--cyberpunk-user-nick-hover-color);
+  --border-color: var(--cyberpunk-border-color);
+
+  /* @消息 */
+  --at-text-color: var(--cyberpunk-at-text-color);
+  --at-bg-color: var(--cyberpunk-at-bg-color);
+  --at-hover-bg-color: var(--cyberpunk-at-hover-bg-color);
+  --at-self-text-color: var(--cyberpunk-at-self-text-color);
+  --at-self-bg-color: var(--cyberpunk-at-self-bg-color);
+  --at-self-hover-bg-color: var(--cyberpunk-at-self-hover-bg-color);
+  --at-self-glow: var(--cyberpunk-glow-cyan);
+  --edit-highlight-color: var(--cyberpunk-edit-highlight-color);
+  --edit-text-color: var(--cyberpunk-edit-text-color);
+  --editing-text-color: var(--cyberpunk-editing-text-color);
+  --editing-text-shadow-color: var(--cyberpunk-editing-text-shadow-color); 
+
+  /* 滚动条 */
+  --scrollbar-track-bg: var(--cyberpunk-scrollbar-track-bg);
+  --scrollbar-thumb-bg: var(--cyberpunk-scrollbar-thumb-bg);
+  --scrollbar-thumb-hover-bg: var(--cyberpunk-scrollbar-thumb-hover-bg);
+
+  /* CRT Overlay (赛博朋克模式下设为透明) */
+  --crt-overlay-color: var(--cyberpunk-crt-overlay-color);
+
+  /* 终端按钮 - 使用次要按钮样式作为默认 */
+  --terminal-border: var(--cyberpunk-button-secondary-border-color);
+  --terminal-text: var(--cyberpunk-button-secondary-text-color);
+  --terminal-highlight: var(--cyberpunk-prompt-color); /* 按钮高亮用主黄色 */
+  --terminal-background: var(--cyberpunk-button-secondary-bg-color); 
+}
+
+/* 为 .cyberpunk-mode 下的特定元素应用辉光 */
+.cyberpunk-mode .prompt,
+.cyberpunk-mode .message-content.self,
+.cyberpunk-mode .user-nick:hover,
+.cyberpunk-mode .message-content .at-mention.self,
+.cyberpunk-mode .message-content .at-mention:not(.self),
+.cyberpunk-mode .terminal-button.active .button-text,
+.cyberpunk-mode .terminal-button:hover .button-text {
+  text-shadow: var(--glow);
+}
+
+.cyberpunk-mode .message-content .at-mention.self {
+  text-shadow: var(--cyberpunk-glow-cyan);
+}
+
+.cyberpunk-mode .user-nick {
+  transition: color 0.2s ease, text-shadow 0.2s ease; /* 平滑过渡 */
+}
+.cyberpunk-mode .user-nick:hover {
+  text-shadow: var(--cyberpunk-glow-cyan);
+}
+
+/* Cyberpunk 按钮特定样式 */
+.cyberpunk-mode .terminal-button {
+  border: 1px solid var(--cyberpunk-button-secondary-border-color);
+  background-color: var(--cyberpunk-button-secondary-bg-color);
+  box-shadow: none; /* 移除默认阴影 */
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, text-shadow 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cyberpunk-mode .terminal-button .button-text {
+  color: var(--cyberpunk-button-secondary-text-color);
+  text-shadow: var(--cyberpunk-glow-cyan);
+}
+
+.cyberpunk-mode .terminal-button:hover {
+  border-color: var(--cyberpunk-prompt-color); /* 悬停时边框变黄 */
+  background-color: rgba(252, 238, 10, 0.1); /* 悬停时淡黄色背景 */
+  box-shadow: var(--cyberpunk-glow-yellow); /* 悬停时黄色辉光 */
+}
+
+.cyberpunk-mode .terminal-button:hover .button-text {
+  color: var(--cyberpunk-prompt-color); /* 悬停时文字变黄 */
+  text-shadow: var(--cyberpunk-glow-yellow);
+}
+
+.cyberpunk-mode .terminal-button.active {
+  background-color: var(--cyberpunk-button-primary-bg-color); /* Active 状态用黄底 */
+  border-color: var(--cyberpunk-button-primary-border-color);
+  box-shadow: var(--cyberpunk-glow-yellow);
+}
+
+.cyberpunk-mode .terminal-button.active .button-text {
+  color: var(--cyberpunk-button-primary-text-color); /* Active 状态用深色文字 */
+  text-shadow: none; /* 黄底黑字，不需要文字辉光 */
+}
+
+/* 面板 (Emoji/Command/Mention) - Cyberpunk */
+.cyberpunk-mode .terminal-emoji-picker,
+.cyberpunk-mode .command-palette,
+.cyberpunk-mode .mention-palette {
+  background-color: var(--cyberpunk-panel-bg-color) !important;
+  border: 1px solid var(--cyberpunk-panel-border-color) !important;
+  color: var(--cyberpunk-panel-text-color) !important;
+  box-shadow: var(--cyberpunk-panel-shadow) !important; 
+}
+
+.cyberpunk-mode .terminal-emoji-picker .emoji-search input {
+  background-color: var(--cyberpunk-bg-color);
+  border: 1px solid var(--cyberpunk-border-color);
+  color: var(--cyberpunk-input-color);
+  caret-color: var(--cyberpunk-prompt-color);
+}
+.cyberpunk-mode .terminal-emoji-picker .emoji-search input:focus {
+  border-color: var(--cyberpunk-prompt-color);
+  box-shadow: var(--cyberpunk-glow-yellow);
+}
+
+.cyberpunk-mode .terminal-emoji-picker .emoji-item:hover,
+.cyberpunk-mode .command-item.selected,
+.cyberpunk-mode .mention-item.selected {
+  background-color: var(--cyberpunk-panel-hover-bg-color) !important;
+  color: var(--cyberpunk-user-nick-color) !important; /* 选中项文字用青色 */
+  text-shadow: var(--cyberpunk-glow-cyan);
+}
+
+.cyberpunk-mode .command-item-name, 
+.cyberpunk-mode .command-item-description,
+.cyberpunk-mode .command-item-empty,
+.cyberpunk-mode .command-free-text-prompt,
+.cyberpunk-mode .mention-item-empty {
+  color: var(--cyberpunk-panel-text-color) !important;
+}
+
+.cyberpunk-mode .command-item-name strong {
+  color: var(--cyberpunk-prompt-color); /* 命令名中的匹配部分用黄色 */
+  text-shadow: var(--cyberpunk-glow-yellow);
+}
+
+/* 解决辉光可能导致的字体模糊问题，尤其是在深色背景上 */
+.cyberpunk-mode body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.cyberpunk-mode .input-area textarea {
+  caret-color: var(--cyberpunk-prompt-color);
+  text-shadow: 0 0 1px var(--cyberpunk-input-color); /* 给输入文字也一点点柔和辉光 */
+}
+
+.cyberpunk-mode .input-area textarea::placeholder {
+  color: var(--cyberpunk-dim-color);
+}
+
+/* 确保消息中的链接也有赛博朋克风格 */
+.cyberpunk-mode .message-content a {
+  color: var(--cyberpunk-user-nick-color); /* 链接用青色 */
+  text-decoration: underline;
+  text-shadow: var(--cyberpunk-glow-cyan);
+}
+
+.cyberpunk-mode .message-content a:hover {
+  color: var(--cyberpunk-user-nick-hover-color);
+  text-shadow: 0 0 5px var(--cyberpunk-user-nick-color), 0 0 10px var(--cyberpunk-user-nick-color);
 }
 
 

@@ -398,7 +398,7 @@ const availableCommands: Command[] = [
     name: 'theme',
     displayName: '切换主题',
     description: '更改聊天界面的颜色主题。',
-    usage: 'eye | default',
+    usage: 'eye | default | cyberpunk', // 更新用法提示
     actionPrefix: '/theme ',
     parameters: [
       {
@@ -407,6 +407,7 @@ const availableCommands: Command[] = [
         options: [
           { value: 'eye', displayValue: 'eye (护眼模式)', description: '切换到护眼模式' },
           { value: 'default', displayValue: 'default (默认主题)', description: '恢复到默认主题' },
+          { value: 'cyberpunk', displayValue: 'cyberpunk (赛博朋克)', description: '切换到赛博朋克主题' }, // 新增赛博朋克选项
         ],
       },
     ],
@@ -492,8 +493,8 @@ export default function ChatRoom() {
     content: string;
   } | null>(null);
 
-  // 新增：护眼模式状态
-  const [isEyeCareMode, setIsEyeCareMode] = useState(false);
+  // 将 isEyeCareMode 状态修改为 currentTheme
+  const [currentTheme, setCurrentTheme] = useState<string>('default'); // 默认为 'default'
 
   // 新增：命令面板相关状态
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -514,25 +515,26 @@ export default function ChatRoom() {
   // 添加通知相关状态
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
 
-  // 新增：useEffect 用于初始化和响应 isEyeCareMode 变化
+  // useEffect 用于初始化和响应 currentTheme 变化
   useEffect(() => {
-    // 初始化时从 localStorage 读取主题设置
     const savedTheme = localStorage.getItem('chat_theme');
-    if (savedTheme === 'eye-care') {
-      setIsEyeCareMode(true);
+    if (savedTheme && ['default', 'eye-care', 'cyberpunk'].includes(savedTheme)) {
+      setCurrentTheme(savedTheme);
     }
   }, []);
 
   useEffect(() => {
-    // 当 isEyeCareMode 变化时，更新 body 的 class 和 localStorage
-    if (isEyeCareMode) {
+    // 清理可能存在的主题类
+    document.documentElement.classList.remove('eye-care-mode', 'cyberpunk-mode');
+
+    if (currentTheme === 'eye-care') {
       document.documentElement.classList.add('eye-care-mode');
-      localStorage.setItem('chat_theme', 'eye-care');
-    } else {
-      document.documentElement.classList.remove('eye-care-mode');
-      localStorage.setItem('chat_theme', 'default');
+    } else if (currentTheme === 'cyberpunk') {
+      document.documentElement.classList.add('cyberpunk-mode');
     }
-  }, [isEyeCareMode]);
+    // 如果是 'default'，则不添加额外类名
+    localStorage.setItem('chat_theme', currentTheme);
+  }, [currentTheme]);
 
   useEffect(() => {
     const savedUserId = Cookies.get(USER_ID_COOKIE);
@@ -1239,16 +1241,33 @@ export default function ChatRoom() {
           handleInviteCommand(argString);
           commandProcessed = true;
         } else if (commandName === 'theme') {
-          if (argString === 'eye' || argString === 'default') {
-            const newIsEyeCare = argString === 'eye';
-            if (isEyeCareMode !== newIsEyeCare) {
-                setIsEyeCareMode(newIsEyeCare);
-                setAllMessages(prev => [...prev, { id: `system-${Date.now()}`, type: 'system', content: newIsEyeCare ? '护眼模式已启用。' : '默认主题已恢复。', userId: 'system', timestamp: Date.now(), roomId: roomId as string, isNew: true }]);
+          const newThemeArg = argString.toLowerCase();
+          let themeToSet = 'default'; // 默认情况下设为 default
+          if (newThemeArg === 'eye') {
+            themeToSet = 'eye-care';
+          } else if (newThemeArg === 'cyberpunk') {
+            themeToSet = 'cyberpunk';
+          } else if (newThemeArg === 'default') {
+            themeToSet = 'default';
+          }
+
+          if (['eye-care', 'default', 'cyberpunk'].includes(themeToSet)) {
+            if (currentTheme !== themeToSet) {
+                setCurrentTheme(themeToSet);
+                let themeNameForMessage = '';
+                if (themeToSet === 'eye-care') themeNameForMessage = '护眼模式';
+                else if (themeToSet === 'cyberpunk') themeNameForMessage = '赛博朋克主题';
+                else themeNameForMessage = '默认主题';
+                setAllMessages(prev => [...prev, { id: `system-${Date.now()}`, type: 'system', content: `${themeNameForMessage}已启用。`, userId: 'system', timestamp: Date.now(), roomId: roomId as string, isNew: true }]);
             } else {
-                setAllMessages(prev => [...prev, { id: `system-${Date.now()}`, type: 'system', content: newIsEyeCare ? '护眼模式已是启用状态。' : '默认主题已是当前主题。', userId: 'system', timestamp: Date.now(), roomId: roomId as string, isNew: true }]);
+                let themeNameForMessage = '';
+                if (currentTheme === 'eye-care') themeNameForMessage = '护眼模式';
+                else if (currentTheme === 'cyberpunk') themeNameForMessage = '赛博朋克主题';
+                else themeNameForMessage = '默认主题';
+                setAllMessages(prev => [...prev, { id: `system-${Date.now()}`, type: 'system', content: `${themeNameForMessage}已是当前主题。`, userId: 'system', timestamp: Date.now(), roomId: roomId as string, isNew: true }]);
             }
           } else {
-            setAllMessages(prev => [...prev, { id: `system-${Date.now()}`, type: 'system', content: `无效的主题参数: '${argString}'. 可用: eye, default`, userId: 'system', timestamp: Date.now(), roomId: roomId as string, isNew: true }]);
+            setAllMessages(prev => [...prev, { id: `system-${Date.now()}`, type: 'system', content: `无效的主题参数: '${argString}'. 可用: eye, default, cyberpunk`, userId: 'system', timestamp: Date.now(), roomId: roomId as string, isNew: true }]);
           }
           commandProcessed = true;
         } else {
