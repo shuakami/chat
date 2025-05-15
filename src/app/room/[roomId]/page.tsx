@@ -109,6 +109,18 @@ const imageContentStyle = `
   }
 `;
 
+// 添加链接样式
+const linkStyle = `
+  .message-link {
+    color: #87CEFA; /* LightSkyBlue, good for dark themes */
+    text-decoration: underline;
+  }
+  .message-link:hover {
+    color: #ADD8E6; /* LightBlue, slightly different for hover */
+    text-decoration: underline;
+  }
+`;
+
 // 更新 MediaPreview 组件
 const MediaPreview = ({ src, onClose, type = 'image' }: { src: string; onClose: () => void; type?: 'image' | 'video' }) => {
   return (
@@ -901,8 +913,8 @@ export default function ChatRoom() {
             commandProcessed = true;
           } else if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
             addSystemMessage('推送通知功能未配置VAPID密钥，请联系管理员。');
-            commandProcessed = true;
-          } else {
+          commandProcessed = true;
+        } else {
             if (argString === 'enable') {
               if (isSubscribedToPush) {
                 addSystemMessage('已为此房间启用了离线消息推送。');
@@ -935,8 +947,8 @@ export default function ChatRoom() {
             } else {
               addSystemMessage(`无效的通知操作: '${argString}'. 可用: enable, disable`);
             }
-            commandProcessed = true;
-          }
+           commandProcessed = true; 
+        }
         } else if (commandName === 'peeking') {
           if (!isConnected) {
             addSystemMessage('未连接到服务器，无法获取窥屏者名单。');
@@ -1025,7 +1037,7 @@ export default function ChatRoom() {
     if (!isEmoji) setPreviewImage({ url, type });
   };
 
-  const renderMessageContent = (msg: ExtendedReceiveMessage, isCurrentUser: boolean) => {
+  const renderMessageContent = (msg: ExtendedReceiveMessage, isCurrentUser: boolean): React.ReactNode => {
     if (msg.fileMeta) {
       if (msg.fileMeta.emoji_id && msg.content === '[表情]') {
         return (
@@ -1068,7 +1080,7 @@ export default function ChatRoom() {
           </div>
         );
       }
-      const cleanFileName = msg.fileMeta.fileName.replace(/^\\d+_/, '');
+      const cleanFileName = msg.fileMeta.fileName.replace(/^\d+_/, '');
       const fileSizeKB = Math.round(msg.fileMeta.fileSize / 1024);
       return (
         <a
@@ -1085,39 +1097,86 @@ export default function ChatRoom() {
         </a>
       );
     }
-    if (msg.content.includes('@')) {
-      const parts = msg.content.split(/(@\\S+)/).filter(Boolean);
-      return (
-        <span className="message-text">
-          {parts.map((part, index) => {
-            if (part.startsWith('@')) {
-              const username = part.slice(1).replace(/[.,!?，。！？、]$/, '');
-              const isSelf = username === userId;
-              return (
-                <span
-                  key={index}
-                  className={`at-mention ${isSelf ? 'self' : ''}`}
-                  onClick={() => {
-                    if (inputRef.current) {
-                      const currentValue = inputRef.current.value;
-                      const atText = `@${username} `;
-                      if (!currentValue.includes(atText)) {
-                        setMessageInput(currentValue + atText);
-                        inputRef.current.focus();
-                      }
-                    }
-                  }}
-                >
-                  {part}
-                </span>
-              );
-            }
-            return <span key={index}>{part}</span>;
-          })}
-        </span>
-      );
-    }
-    return <span className="message-text">{msg.content}</span>;
+
+    const baseKey = msg.id;
+
+    const processMentionsInSegment = (segment: string, keyPrefix: string): React.ReactNode[] => {
+      const mentionElements: React.ReactNode[] = [];
+      const mentionRegexForSplit = /(@\S+)/;
+      const parts = segment.split(mentionRegexForSplit).filter(Boolean);
+
+      parts.forEach((part, index) => {
+        if (part.startsWith('@')) {
+          const username = part.slice(1).replace(/[.,!?，。！？、]$/, '');
+          const isSelf = username === userId;
+          mentionElements.push(
+            <span
+              key={`${keyPrefix}-mention-${index}-${username}`}
+              className={`at-mention ${isSelf ? 'self' : ''}`}
+              onClick={() => handleUserNameClick(username)}
+            >
+              {part}
+            </span>
+          );
+        } else {
+          mentionElements.push(part);
+        }
+      });
+      return mentionElements;
+    };
+
+    const processTextForLinksAndMentions = (text: string): React.ReactNode[] => {
+      if (typeof text !== 'string') {
+        return [String(text)]; 
+      }
+      const finalElements: React.ReactNode[] = [];
+      const urlRegex = /(?:https?:\/\/|www\.)[^\s<>"'`'“”]+/gi;
+      const urlMatches = Array.from(text.matchAll(urlRegex));
+      let currentIndex = 0;
+
+      if (urlMatches.length === 0) {
+        if (text.includes('@')) {
+          return processMentionsInSegment(text, `${baseKey}-seg-nou`);
+        }
+        return [text];
+      }
+
+      urlMatches.forEach((match, matchIndex) => {
+        const url = match[0];
+        const startIndex = match.index!;
+
+        if (startIndex > currentIndex) {
+          const precedingText = text.substring(currentIndex, startIndex);
+          finalElements.push(...processMentionsInSegment(precedingText, `${baseKey}-seg-${matchIndex}-pre`));
+        }
+
+        let href = url;
+        if (url.startsWith('www.')) {
+          href = `http://${url}`;
+        }
+        finalElements.push(
+          <a
+            key={`${baseKey}-url-${matchIndex}`}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="message-link"
+          >
+            {url}
+          </a>
+        );
+        currentIndex = startIndex + url.length;
+      });
+
+      if (currentIndex < text.length) {
+        const trailingText = text.substring(currentIndex);
+        finalElements.push(...processMentionsInSegment(trailingText, `${baseKey}-seg-post`));
+      }
+      
+      return finalElements.length > 0 ? finalElements : [text];
+    };
+    
+    return <span className="message-text">{processTextForLinksAndMentions(msg.content)}</span>;
   };
 
   const handleUserNameClick = (username: string) => {
@@ -1174,7 +1233,7 @@ export default function ChatRoom() {
         processedContent = String(rawContent);
       }
     }
-
+    
     return (
       <div 
         key={messageKey} 
@@ -1531,6 +1590,7 @@ export default function ChatRoom() {
     return (
       <>
         <style jsx global>{imageContentStyle}</style>
+        <style jsx global>{linkStyle}</style>
         <div className="crt-overlay"></div>
         <section id="login-form" className="terminal" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
           <div className="terminal-content !mt-[55px]">
@@ -1580,6 +1640,7 @@ export default function ChatRoom() {
     <>
       <style jsx global>{systemMessageStyle}</style>
       <style jsx global>{imageContentStyle}</style>
+      <style jsx global>{linkStyle}</style>
       <div className="crt-overlay"></div>
       <section id="chat-area" className="terminal">
         <div className="terminal-content">
