@@ -1775,11 +1775,12 @@ export default function ChatRoom() {
     setMessageInput(value);
 
     // 检查是否触发 @ 提及
+    // 仅当命令面板未激活时，才考虑触发提及面板
     const lastAtMatch = value.match(/@(\w*)$/);
-    if (lastAtMatch && !value.endsWith('@ ')) { // 如果以 @word 结尾且@后没有立即空格
+    if (!showCommandPalette && lastAtMatch && !value.endsWith('@ ')) { // 如果以 @word 结尾且@后没有立即空格
       setShowMentionPalette(true);
       setMentionPaletteFilter(lastAtMatch[1]); // lastAtMatch[1] 是 @ 后面的词
-      setShowCommandPalette(false); // 关闭命令面板
+      // setShowCommandPalette(false); // 如果命令面板本来就没开，这行可以不执行；如果开了，上面!showCommandPalette会阻止这里
     } else if (value.startsWith('/') && !value.includes(' ')) {
       // 如果以 / 开头且没有空格 (触发主命令)
       setShowCommandPalette(true);
@@ -1787,11 +1788,8 @@ export default function ChatRoom() {
       setCommandPaletteFilter(mainCommandPart);
       setShowMentionPalette(false); // 关闭提及面板
     } else if (value.startsWith('/') && value.includes(' ')) {
-       if (!showMentionPalette) { // 只有在没有激活mention palette时才考虑command palette
-        const firstSpaceIndex = value.indexOf(' ');
-        const mainCommandPart = value.substring(1, firstSpaceIndex !== -1 ? firstSpaceIndex : undefined);
-        setCommandPaletteFilter(mainCommandPart); // 更新filter给CommandPalette的参数逻辑用
-       }
+      if (showCommandPalette && !showMentionPalette) {
+      }
     } else {
       setShowCommandPalette(false);
       setCommandPaletteFilter('');
