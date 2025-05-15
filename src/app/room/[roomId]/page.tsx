@@ -476,8 +476,32 @@ const availableCommands: Command[] = [
       },
     ],
   },
-  // 可以根据需要添加更多命令
+  {
+    id: 'peeking',
+    name: 'peeking',
+    displayName: '谁在偷窥',
+    description: '实时捕捉谁在看但又不说话。把偷窥的杂鱼抓出来吧~',
+    usage: '', // 无需参数
+    actionPrefix: '/peeking ',
+    parameters: [], // 无参数
+  },
 ];
+
+// 为窥屏响应定义一个接口
+interface PeekingResponsePayload {
+  action: 'peeking_list_response';
+  details: string;
+}
+
+// 类型守卫函数
+function isPeekingResponsePayload(content: unknown): content is PeekingResponsePayload {
+  return (
+    typeof content === 'object' &&
+    content !== null &&
+    (content as Record<string, unknown>).action === 'peeking_list_response' &&
+    typeof (content as Record<string, unknown>).details === 'string'
+  );
+}
 
 export default function ChatRoom() {
   const { roomId } = useParams() as { roomId: string };
@@ -544,6 +568,44 @@ export default function ChatRoom() {
     initialWsUserId: initialUserIdForWs,
     joinTimestamp: joinTimestamp,
   });
+
+  const lastVisibilityStateRef = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const currentVisibility = !document.hidden;
+      // 只有当状态实际改变时才发送
+      if (lastVisibilityStateRef.current !== currentVisibility) {
+        console.log(`Page visibility changed to: ${currentVisibility ? 'visible' : 'hidden'}. Sending update.`);
+        sendMessage('user_visibility', JSON.stringify({ 
+          userId: userId, // 使用当前 userId
+          roomId: roomId, 
+          isVisible: currentVisibility 
+        }));
+        lastVisibilityStateRef.current = currentVisibility;
+      }
+    };
+
+    // 只有当用户已加入且 WebSocket 连接建立后才开始监听和发送
+    if (isJoined && userId && roomId && isConnected) {
+      // 发送初始状态
+      const initialVisibility = !document.hidden;
+      console.log(`Initial page visibility: ${initialVisibility ? 'visible' : 'hidden'}. Sending update.`);
+      sendMessage('user_visibility', JSON.stringify({ 
+        userId: userId, 
+        roomId: roomId, 
+        isVisible: initialVisibility 
+      }));
+      lastVisibilityStateRef.current = initialVisibility;
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        sendMessage('user_visibility', JSON.stringify({ userId: userId, roomId: roomId, isVisible: false }));
+      };
+    }
+  }, [isJoined, userId, roomId, sendMessage, isConnected]); // 添加 isConnected 到依赖项
 
   useEffect(() => {
     const savedUserId = Cookies.get(USER_ID_COOKIE);
@@ -796,6 +858,7 @@ export default function ChatRoom() {
         const [commandNamePart, ...argsParts] = trimmedInput.substring(1).split(' ');
         const commandName = commandNamePart.toLowerCase();
         const argString = argsParts.join(' ').trim();
+
         if (commandName === 'clear' && argString === 'me') {
           if (window.confirm('确定要删除你发送的所有消息吗？此操作不可撤销。')) {
             deleteAllMessagesOnServer();
@@ -838,8 +901,8 @@ export default function ChatRoom() {
             commandProcessed = true;
           } else if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
             addSystemMessage('推送通知功能未配置VAPID密钥，请联系管理员。');
-          commandProcessed = true;
-        } else {
+            commandProcessed = true;
+          } else {
             if (argString === 'enable') {
               if (isSubscribedToPush) {
                 addSystemMessage('已为此房间启用了离线消息推送。');
@@ -859,7 +922,6 @@ export default function ChatRoom() {
                  addSystemMessage('通知权限已具备，正在启用离线消息推送...');
                  subscribeUserToPush();
               }
-           commandProcessed = true; 
             } else if (argString === 'disable') {
               if (!isSubscribedToPush && notificationPermission !== 'denied') {
                  addSystemMessage('当前房间未启用离线消息推送，无需禁用。');
@@ -870,12 +932,18 @@ export default function ChatRoom() {
                 addSystemMessage('正在禁用此房间的离线消息推送...');
                 unsubscribeUserFromPush();
               }
-              commandProcessed = true;
             } else {
               addSystemMessage(`无效的通知操作: '${argString}'. 可用: enable, disable`);
-              commandProcessed = true;
             }
+            commandProcessed = true;
           }
+        } else if (commandName === 'peeking') {
+          if (!isConnected) {
+            addSystemMessage('未连接到服务器，无法获取窥屏者名单。');
+          } else {
+            sendMessage('request_peeking_list', JSON.stringify({ roomId: roomId, requesterId: userId }));
+          }
+          commandProcessed = true;
         } else {
            addSystemMessage(`未知命令或参数不正确: '${trimmedInput}'`);
            commandProcessed = true; 
@@ -1089,9 +1157,24 @@ export default function ChatRoom() {
     if (msg.type === 'join') messageType = 'UserJoined';
     else if (msg.type === 'leave') messageType = 'UserLeft';
     else if (msg.type === 'onlineList') messageType = 'OnlineUsers';
-    let content = msg.content;
-    if (msg.type === 'join') content = `${msg.userId} 进入了房间`;
-    else if (msg.type === 'leave') content = `${msg.userId} 离开了房间`;
+    
+    let processedContent: string;
+    const rawContent = msg.content;
+
+    if (msg.type === 'join') {
+      processedContent = `${msg.userId} 进入了房间`;
+    } else if (msg.type === 'leave') {
+      processedContent = `${msg.userId} 离开了房间`;
+    } else {
+      if (isPeekingResponsePayload(rawContent)) {
+        processedContent = rawContent.details;
+      } else if (typeof rawContent === 'object' && rawContent !== null) {
+        processedContent = JSON.stringify(rawContent);
+      } else {
+        processedContent = String(rawContent);
+      }
+    }
+
     return (
       <div 
         key={messageKey} 
@@ -1103,7 +1186,7 @@ export default function ChatRoom() {
       >
         <div className="message-content">
           <span className="timestamp">[{new Date(msg.timestamp).toLocaleTimeString()}]</span>
-          {isCollapsed ? (<span className="message-text"> {messageType}</span>) : (<span className="message-text"> {content}</span>)}
+          {isCollapsed ? (<span className="message-text"> {messageType}</span>) : (<span className="message-text"> {processedContent}</span>)}
         </div>
       </div>
     );
