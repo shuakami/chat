@@ -299,13 +299,13 @@ body {
 
 /* 输入区域样式调整 */
 .input-container {
-  width: 100%;
+  width: 100vw;
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   background: var(--bg-color);
-  padding: 15px 0;
+  padding: 12px 0;
   border-top: 1px solid var(--border-color);
   z-index: 1000;
   line-height: 1.6;
@@ -313,7 +313,7 @@ body {
 
 .input-container .input-line {
   width: 100%;
-  max-width: min(900px, 92%);
+  max-width: 900px;
   margin: 0 auto;
   padding-left: 0;
   padding-right: 0;
@@ -335,6 +335,7 @@ body {
   line-height: 1.6;
   max-height: 150px;
   overflow-y: auto;
+  min-width: 0; /* 关键，防止子元素撑爆 */
 }
 .input-field:focus { 
   outline: none; 
@@ -352,6 +353,27 @@ body {
 
 .input-container .action-buttons {
   margin-top: 4px;
+}
+
+/* 手机端样式优化 */
+@media (max-width: 600px) {
+  .input-container {
+    padding: 6px 0;
+  }
+  .input-container .input-line {
+    max-width: 100vw;
+    gap: 4px;
+    padding: 0 4vw;
+  }
+  .input-field {
+    font-size: 16px; /* 手机端更大一点，便于输入 */
+    max-height: 100px;
+    min-width: 0;
+  }
+  .input-container .prompt {
+    margin-right: 4px;
+    font-size: 14px;
+  }
 }
 
 /* 消息与高亮 */
