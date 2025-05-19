@@ -251,43 +251,49 @@ const useAgoraVoice = ({
     if (!client || !isInVoiceChannel) return;
 
     const handleUserPublished = async (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
-      console.log(`[Agora] User published: ${user.uid}, type: ${mediaType}`);
-      if (mediaType === 'audio' && user.audioTrack) {
-        try {
-          await client.subscribe(user, mediaType);
-          console.log(`[Agora] Subscribed to remote user ${user.uid} audio`);
+        console.log(`[Agora] User published: ${user.uid}, type: ${mediaType}, user.audioTrack:`, user.audioTrack);
+        if (mediaType === 'audio' && user.audioTrack) {
           try {
-            user.audioTrack.play();
-            console.log(`[Agora] Playing remote user ${user.uid} audio`);
-          } catch (e) {
-            console.error('audioTrack.play() failed:', e);
-          }
-          console.log(`[Agora] Playing remote user ${user.uid} audio`);
-          setRemoteUsers(prevUsers => [...prevUsers.filter(u => u.uid !== user.uid), user]);
-          
-          updateVoiceParticipants((prev: VoiceParticipant[]) => {
-            const existing = prev.find((p: VoiceParticipant) => p.agoraUid === user.uid);
-            const initialMuteStateForRemote = false; 
-            if (existing) {
-              return prev.map((p: VoiceParticipant) => 
-                p.agoraUid === user.uid ? { ...p, audioTrack: user.audioTrack, isMuted: p.isMuted } : p // Preserve existing isMuted from WS
-              );
+            await client.subscribe(user, mediaType);
+            console.log(`[Agora] Subscribed to remote user ${user.uid} audio`, user.audioTrack);
+            try {
+              user.audioTrack.play();
+              console.log(`[Agora] Called play() for user ${user.uid} audioTrack`, user.audioTrack);
+            } catch (e) {
+              console.error('audioTrack.play() failed:', e);
             }
-            return [...prev, {
-              userId: String(user.uid), 
-              agoraUid: user.uid as number,
-              isMuted: initialMuteStateForRemote, // Default to false, WS message will update
-              isLocal: false,
-              displayName: String(user.uid), 
-              audioTrack: user.audioTrack as IRemoteAudioTrack,
-            }];
-          });
-
-        } catch (error) {
-          console.error(`[Agora] Failed to subscribe or play remote user ${user.uid} audio:`, error);
+            // 关键：play后马上检测 audio DOM
+            setTimeout(() => {
+              const audios = document.querySelectorAll('audio');
+              console.log('play()后当前audio标签数量:', audios.length, audios);
+            }, 500);
+      
+            setRemoteUsers(prevUsers => [...prevUsers.filter(u => u.uid !== user.uid), user]);
+            updateVoiceParticipants((prev: VoiceParticipant[]) => {
+              const existing = prev.find((p: VoiceParticipant) => p.agoraUid === user.uid);
+              const initialMuteStateForRemote = false; 
+              if (existing) {
+                return prev.map((p: VoiceParticipant) => 
+                  p.agoraUid === user.uid ? { ...p, audioTrack: user.audioTrack, isMuted: p.isMuted } : p // Preserve existing isMuted from WS
+                );
+              }
+              return [...prev, {
+                userId: String(user.uid), 
+                agoraUid: user.uid as number,
+                isMuted: initialMuteStateForRemote,
+                isLocal: false,
+                displayName: String(user.uid), 
+                audioTrack: user.audioTrack as IRemoteAudioTrack,
+              }];
+            });
+      
+          } catch (error) {
+            console.error(`[Agora] Failed to subscribe or play remote user ${user.uid} audio:`, error);
+          }
+        } else {
+          console.warn(`[Agora] handleUserPublished: audioTrack 不存在`, user.audioTrack);
         }
-      }
-    };
+      };      
 
     const handleUserUnpublished = (user: IAgoraRTCRemoteUser, mediaType: 'audio' | 'video') => {
       console.log(`[Agora] User unpublished: ${user.uid}, type: ${mediaType}`);
