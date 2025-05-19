@@ -125,7 +125,16 @@ const useAgoraVoice = ({
       console.log(`[Agora] Joined channel ${roomId} successfully with UID ${tokenData.agoraUid}`);
       setIsInVoiceChannel(true);
 
-      const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+        AEC: true,
+        AGC: true,
+        ANS: true,
+        encoderConfig: {
+          sampleRate: 48000,
+          bitrate: 40,
+          stereo: false
+        }
+      });
       localAudioTrackRef.current = audioTrack;
       await client.publish([audioTrack]);
       console.log('[Agora] Local audio track published');
