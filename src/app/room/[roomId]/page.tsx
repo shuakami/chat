@@ -18,6 +18,9 @@ import { useTheme, ThemeType } from '@/hooks/useTheme';
 import { useNotification } from '@/hooks/useNotification';
 import { useChatMessageHook, ExtendedReceiveMessage } from '@/hooks/useChatMessageHook';
 
+import type { VoiceParticipant, VoiceChannelStateMessage } from '../../../../types/agora'; // 语音相关类型
+import dynamic from 'next/dynamic';
+
 // 在文件顶部添加样式
 const systemMessageStyle = `
   .message.system-msg {
@@ -515,6 +518,8 @@ function isPeekingResponsePayload(content: unknown): content is PeekingResponseP
   );
 }
 
+const VoiceControls = dynamic(() => import('./VoiceControls'), { ssr: false });
+
 export default function ChatRoom() {
   const { roomId } = useParams() as { roomId: string };
   const [isInitialized, setIsInitialized] = useState(false);
@@ -556,6 +561,8 @@ export default function ChatRoom() {
   const [notificationPermission, requestNotification, sendBrowserNotification] = useNotification();
   const swRegistrationRef = useRef<ServiceWorkerRegistration | null>(null);
   const [isSubscribedToPush, setIsSubscribedToPush] = useState(false);
+  // 在 ChatRoom 组件内部，新增语音成员状态
+  const [voiceParticipants, setVoiceParticipants] = useState<VoiceParticipant[]>([]); // 语音成员列表
 
   const {
     allMessages,
@@ -1572,6 +1579,43 @@ export default function ChatRoom() {
     checkSubscription();
   }, [isJoined, userId, roomId, notificationPermission]);
 
+  // 类型守卫：判断是否为 VoiceChannelStateMessage
+  function isVoiceChannelStateMessage(msg: unknown): msg is VoiceChannelStateMessage {
+    return typeof msg === 'object' && msg !== null && (msg as { type?: string }).type === 'voice-channel-state';
+  }
+
+  // 监听 allMessages，处理 voice-channel-state 消息，维护语音成员状态
+  useEffect(() => {
+    // 只处理 type 为 voice-channel-state 的消息
+    const voiceStateMsgs = allMessages.filter(isVoiceChannelStateMessage) as unknown as VoiceChannelStateMessage[];
+    // 用 Map 维护最新状态
+    const participantMap = new Map<string, VoiceParticipant>();
+    for (const msg of voiceStateMsgs) {
+      const key = msg.userId;
+      if (msg.action === 'user-joined-voice') {
+        participantMap.set(key, {
+          userId: msg.userId,
+          agoraUid: msg.agoraUid,
+          displayName: msg.displayName || msg.userId,
+          isMuted: false,
+          isLocal: msg.userId === userId,
+        });
+      } else if (msg.action === 'user-left-voice') {
+        participantMap.delete(key);
+      } else if (msg.action === 'user-muted-audio') {
+        const prev = participantMap.get(key);
+        if (prev) participantMap.set(key, { ...prev, isMuted: true });
+      } else if (msg.action === 'user-unmuted-audio') {
+        const prev = participantMap.get(key);
+        if (prev) participantMap.set(key, { ...prev, isMuted: false });
+      }
+    }
+    setVoiceParticipants(Array.from(participantMap.values()));
+  }, [allMessages, userId]);
+
+
+
+
   if (!isInitialized || (isJoined && !initialUserIdForWs)) {
     return (
         <>
@@ -1749,6 +1793,16 @@ export default function ChatRoom() {
                   </div>
                 )}
               </div>
+              {/* 语音相关按钮和弹窗由 VoiceControls 组件负责 */}
+              <VoiceControls
+                roomId={roomId}
+                userId={userId}
+                isJoined={isJoined}
+                isConnected={isConnected}
+                sendMessage={sendMessage}
+                voiceParticipants={voiceParticipants}
+                setVoiceParticipants={setVoiceParticipants}
+              />
               {editingMessageId && (
                 <button
                   type="button"

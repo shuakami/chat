@@ -19,6 +19,7 @@ export function EmojiPicker({ onSelect, onClose, buttonRef }: EmojiPickerProps) 
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [position, setPosition] = useState({ left: 0, alignRight: false });
   const [isSearching, setIsSearching] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
 
   const updatePosition = useCallback(() => {
     if (buttonRef.current && rootRef.current) {
@@ -59,17 +60,32 @@ export function EmojiPicker({ onSelect, onClose, buttonRef }: EmojiPickerProps) 
     }
   }, [fetchEmojis, emojis.length]);
 
+  const handleCloseWithAnimation = useCallback(() => {
+    if (isClosing) return;
+    setIsClosing(true);
+  }, [isClosing]);
+
+  useEffect(() => {
+    if (isClosing && rootRef.current) {
+      const animationDuration = 200;
+      const timer = setTimeout(() => {
+        onClose();
+      }, animationDuration);
+      return () => clearTimeout(timer);
+    }
+  }, [isClosing, onClose]);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        onClose();
+      if (rootRef.current && !rootRef.current.contains(event.target as Node) && !isClosing) {
+        handleCloseWithAnimation();
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [onClose]);
+  }, [handleCloseWithAnimation, isClosing]);
 
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
@@ -156,11 +172,12 @@ export function EmojiPicker({ onSelect, onClose, buttonRef }: EmojiPickerProps) 
         if (selectedIndex >= 0 && selectedIndex < displayEmojis.length) {
           const emoji = displayEmojis[selectedIndex];
           onSelect({ url: emoji.url, emoji_id: emoji.emoji_id });
+          handleCloseWithAnimation();
         }
         break;
       case 'Escape':
         e.preventDefault();
-        onClose();
+        handleCloseWithAnimation();
         break;
     }
   };
@@ -170,7 +187,7 @@ export function EmojiPicker({ onSelect, onClose, buttonRef }: EmojiPickerProps) 
   return (
     <div 
       ref={rootRef} 
-      className="terminal-emoji-picker"
+      className={`terminal-emoji-picker ${isClosing ? 'closing' : ''}`}
       onKeyDown={handleKeyDown}
       tabIndex={0}
       style={{

@@ -231,6 +231,22 @@
   50% { opacity: 0.3; }
 }
 
+/* 新增关闭动画 */
+@keyframes terminalFadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
+.terminal-emoji-picker.closing {
+  animation: terminalFadeOut 0.2s ease-in forwards;
+}
+
 .emoji-panel {
   display: contents;
 } 
