@@ -256,7 +256,12 @@ const useAgoraVoice = ({
         try {
           await client.subscribe(user, mediaType);
           console.log(`[Agora] Subscribed to remote user ${user.uid} audio`);
-          user.audioTrack.play();
+          try {
+            user.audioTrack.play();
+            console.log(`[Agora] Playing remote user ${user.uid} audio`);
+          } catch (e) {
+            console.error('audioTrack.play() failed:', e);
+          }
           console.log(`[Agora] Playing remote user ${user.uid} audio`);
           setRemoteUsers(prevUsers => [...prevUsers.filter(u => u.uid !== user.uid), user]);
           
