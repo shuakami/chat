@@ -124,7 +124,7 @@ const useAgoraVoice = ({
       await client.join(tokenData.appId, roomId, tokenData.token, tokenData.agoraUid);
       console.log(`[Agora] Joined channel ${roomId} successfully with UID ${tokenData.agoraUid}`);
       setIsInVoiceChannel(true);
-      const joinAudio = new Audio('/join.waw');
+      const joinAudio = new Audio('/join.wav');
       joinAudio.play().catch(() => {});
 
       const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
@@ -199,7 +199,7 @@ const useAgoraVoice = ({
       }
 
       await client.leave();
-      const leaveAudio = new Audio('/leave.waw');
+      const leaveAudio = new Audio('/leave.wav');
       leaveAudio.play().catch(() => {});
       console.log('[Agora] Left channel successfully');
       setIsInVoiceChannel(false);
